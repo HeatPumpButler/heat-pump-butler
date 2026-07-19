@@ -18,13 +18,11 @@ The Pricing section includes a live estimator (`index.html`, `<script>` near the
 
 ## Booking widget (Cal.com)
 
-The "Book Now" buttons scroll to a booking section that embeds [Cal.com](https://cal.com)'s free scheduler — no backend required. To activate real booking:
+The "Book Now" buttons scroll to a booking section that embeds [Cal.com](https://cal.com)'s free scheduler — no backend required. It's connected to the Cal.com account `kevin-cutler-gfyocj`, showing all of that account's public event types.
 
-1. Create a free account at https://cal.com
-2. Create an event type (e.g. "Deep Clean Consultation") and set your availability
-3. In `index.html`, find `const CAL_LINK = "heat-pump-butler/deep-clean";` near the bottom and replace it with your real `your-username/your-event-slug`
+To point the embed at one specific event type instead of the full list, open `index.html`, find `const CAL_LINK = "kevin-cutler-gfyocj";` near the bottom, and change it to `"kevin-cutler-gfyocj/your-event-slug"`.
 
-Until you do that, the embed will show Cal.com's placeholder/error state since that account doesn't exist yet.
+Also connect Google Calendar inside Cal.com (Settings → Apps → Google Calendar) so bookings check your real availability and land on your calendar automatically.
 
 ## Quote request form
 

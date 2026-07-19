@@ -710,11 +710,9 @@
 
 <!--
   BOOKING WIDGET — powered by Cal.com (free plan, no backend required).
-  To activate real booking:
-    1. Create a free account at https://cal.com
-    2. Create an event type (e.g. "Deep Clean Consultation") and set your availability
-    3. Replace CAL_LINK below with "your-username/your-event-slug"
-  Until then this embed will show Cal.com's placeholder/error state.
+  Connected to Cal.com username "kevin-cutler-gfyocj" — shows all of that
+  account's public event types. To point at one specific event type instead,
+  set CAL_LINK to "kevin-cutler-gfyocj/your-event-slug".
 -->
 <script type="text/javascript">
   (function (C, A, L) {
@@ -744,7 +742,7 @@
     };
   })(window, "https://app.cal.com/embed/embed.js", "init");
 
-  const CAL_LINK = "heat-pump-butler/deep-clean"; // TODO: replace with your real Cal.com username/event-slug
+  const CAL_LINK = "kevin-cutler-gfyocj"; // Cal.com username — shows all public event types
 
   Cal("init", "deep-clean", { origin: "https://cal.com" });
   Cal.ns["deep-clean"]("inline", {
