@@ -477,6 +477,24 @@
             <button type="button" onclick="changeUnits('odu', 1)" aria-label="Increase outdoor units">+</button>
           </div>
           <p class="hint">Base visit is 1 IDU + 1 ODU. Every additional unit (either kind) adds $75 and 30 minutes.</p>
+
+          <label style="margin-top:20px;" for="manufacturer">Unit manufacturer</label>
+          <select id="manufacturer" onchange="updateQuote()">
+            <option value="">Select manufacturer</option>
+            <option>Mitsubishi Electric</option>
+            <option>Daikin</option>
+            <option>Fujitsu</option>
+            <option>LG</option>
+            <option>Samsung</option>
+            <option>Gree</option>
+            <option>Carrier</option>
+            <option>Other</option>
+          </select>
+
+          <label style="margin-top:16px; display:flex; align-items:flex-start; gap:10px; font-weight:600; cursor:pointer;">
+            <input type="checkbox" id="elevated" onchange="updateQuote()" style="width:18px; height:18px; margin-top:2px;">
+            <span>Any units mounted more than 10 feet off the ground? <span style="color:var(--muted); font-weight:400;">(+$10 per unit)</span></span>
+          </label>
         </div>
         <div class="calc-result">
           <div class="label">Estimated Price</div>
@@ -719,11 +737,15 @@
   let odus = 1;
   let currentDuration = BASE_DURATION;
 
-  function computeQuote(idus, odus) {
+  const ELEVATED_SURCHARGE_PER_UNIT = 10; // per unit, if any units are 10+ ft off the ground
+
+  function computeQuote(idus, odus, elevated) {
     const extra = (idus - 1) + (odus - 1);
+    const elevatedFee = elevated ? (idus + odus) * ELEVATED_SURCHARGE_PER_UNIT : 0;
     return {
-      price: BASE_PRICE + extra * PRICE_PER_EXTRA,
+      price: BASE_PRICE + extra * PRICE_PER_EXTRA + elevatedFee,
       duration: snapDuration(BASE_DURATION + extra * DURATION_PER_EXTRA),
+      elevatedFee: elevatedFee,
     };
   }
 
@@ -737,21 +759,33 @@
   function changeUnits(type, delta) {
     if (type === 'idu') idus = Math.max(1, Math.min(MAX_IDU, idus + delta));
     if (type === 'odu') odus = Math.max(1, Math.min(MAX_ODU, odus + delta));
-
     document.getElementById('idu-count').textContent = idus;
     document.getElementById('odu-count').textContent = odus;
+    updateQuote();
+  }
 
-    const { price, duration } = computeQuote(idus, odus);
+  function updateQuote() {
+    const elevated = document.getElementById('elevated').checked;
+    const { price, duration, elevatedFee } = computeQuote(idus, odus, elevated);
     currentDuration = duration;
 
     document.getElementById('calc-total').textContent = '$' + price;
-    document.getElementById('calc-breakdown').textContent =
-      idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
+    let breakdown = idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
+    if (elevatedFee > 0) breakdown += ' · +$' + elevatedFee + ' elevated unit fee';
+    document.getElementById('calc-breakdown').textContent = breakdown;
     document.getElementById('calc-duration').textContent = formatDuration(duration);
   }
 
   function bookAppointment() {
-    loadCalEmbed(currentDuration);
+    const manufacturer = document.getElementById('manufacturer').value;
+    const elevated = document.getElementById('elevated').checked;
+
+    let details = idus + ' indoor unit(s), ' + odus + ' outdoor unit(s)';
+    if (manufacturer) details += ' — manufacturer: ' + manufacturer;
+    if (elevated) details += ' — units mounted 10+ ft off the ground';
+
+    loadCalEmbed(currentDuration, details);
+
     const note = document.getElementById('booking-duration-note');
     if (note) note.textContent = 'Showing availability for a ' + formatDuration(currentDuration) + ' appointment (' + idus + ' indoor, ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's') + ').';
   }
@@ -760,12 +794,14 @@
 <!--
   BOOKING WIDGET — powered by Cal.com (free plan, no backend required).
 
-  Connected to Cal.com event type "kevin-cutler-gfyocj/deep-clean".
-  To make appointment length follow the quote calculator above, that event
-  type needs "Multiple durations" turned on in Cal.com (Event Type ->
-  Duration tab -> enable "Allow booker to select duration") with these
-  options added: 60, 90, 120, 150, 180, 210, 240, 270 (minutes), default 60.
-  The embed then appends ?duration=N to preselect the right length.
+  Connected to Cal.com event type "kevin-cutler-gfyocj/deep-cleaning".
+  Appointment length follows the quote calculator above via that event
+  type's "Multiple durations" setting (Event Type -> Duration tab ->
+  "Allow booker to select duration"), configured with: 30, 60, 90, 120,
+  150, 180, 240, 300, 360, 420, 480 (minutes), default 60 — this list must
+  match AVAILABLE_DURATIONS above exactly.
+  The embed appends ?duration=N and ?notes=... to prefill the booking page
+  with the computed length and the manufacturer/elevated-unit details.
 -->
 <script type="text/javascript">
   (function (C, A, L) {
@@ -800,13 +836,15 @@
   Cal("init", "deep-clean", { origin: "https://cal.com" });
   Cal.ns["deep-clean"]("ui", { hideEventTypeDetails: false, layout: "month_view" });
 
-  function loadCalEmbed(duration) {
+  function loadCalEmbed(duration, notes) {
     const container = document.getElementById('cal-booking-embed');
     if (container) container.innerHTML = '';
+    let link = CAL_LINK + "?duration=" + duration;
+    if (notes) link += "&notes=" + encodeURIComponent(notes);
     Cal.ns["deep-clean"]("inline", {
       elementOrSelector: "#cal-booking-embed",
       config: { layout: "month_view" },
-      calLink: CAL_LINK + "?duration=" + duration,
+      calLink: link,
     });
   }
 

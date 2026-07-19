@@ -21,6 +21,13 @@ The Pricing section includes a live estimator (`index.html`, `<script>` near the
 
 So price and appointment length both scale off the same "extra units" count. The raw duration is then rounded **up** to the nearest length Cal.com actually offers (see below) — better to over-allocate the technician's time than under-allocate it. Update `BASE_PRICE`, `PRICE_PER_EXTRA`, `BASE_DURATION`, and `DURATION_PER_EXTRA` in that script to change the formula, or `MAX_IDU` / `MAX_ODU` to change the stepper caps (currently 6 IDUs, 3 ODUs).
 
+The calculator also collects two extra details that don't come from the site's own form:
+
+- **Manufacturer** — a dropdown (Mitsubishi Electric, Daikin, Fujitsu, LG, Samsung, Gree, Carrier, Other). Informational only, no effect on price.
+- **Units 10+ feet off the ground** — a checkbox that adds `$10` per unit (`ELEVATED_SURCHARGE_PER_UNIT`) to the price when checked, e.g. 2 IDU + 1 ODU with the box checked adds $30.
+
+Both are passed along as free text in the booking's prefilled "notes" field when someone clicks "Get This Quote & Book" (see below) — the technician sees them on the Cal.com booking itself, no separate form submission needed.
+
 ## Booking widget (Cal.com)
 
 The "Book Now" buttons scroll to a booking section that embeds [Cal.com](https://cal.com)'s free scheduler — no backend required. Clicking **"Get This Quote & Book"** in the calculator re-loads the embed with the matching appointment duration pre-selected, so the time slots shown actually reflect the job size.
@@ -30,6 +37,8 @@ This depends on the **Deep Cleaning** event type under account `kevin-cutler-gfy
 The site's `AVAILABLE_DURATIONS` array (in the same `<script>` as the calculator) must always match that list exactly — if you add/remove duration options in Cal.com, update the array here too, since the calculator snaps its computed duration up to the nearest value in this list.
 
 If you rename the event type or use a different slug, update `CAL_LINK` near the bottom of `index.html` (currently `"kevin-cutler-gfyocj/deep-cleaning"`).
+
+The embed also appends `&notes=...` with the manufacturer and elevated-unit details from the calculator, using Cal.com's standard "additional notes" prefill param — no extra Cal.com setup needed for that part. If you notice the notes field isn't actually prefilling on the live booking page, let me know and I'll look at an alternative (e.g. custom booking questions configured on the event type).
 
 Also connect Google Calendar inside Cal.com (Settings → Apps → Google Calendar) so bookings check your real availability and land on your calendar automatically.
 
