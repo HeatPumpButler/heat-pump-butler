@@ -23,8 +23,10 @@ So price and appointment length both scale off the same "extra units" count. The
 
 The calculator also collects two extra details that don't come from the site's own form:
 
-- **Manufacturer** — a dropdown (Mitsubishi Electric, Daikin, Fujitsu, LG, Samsung, Gree, Carrier, Other). Informational only, no effect on price.
-- **Units 10+ feet off the ground** — a checkbox that adds `$10` per unit (`ELEVATED_SURCHARGE_PER_UNIT`) to the price when checked, e.g. 2 IDU + 1 ODU with the box checked adds $30.
+- **Manufacturer** — a dropdown (Mitsubishi Electric, Daikin, Fujitsu, LG, Samsung, Gree, Carrier, Other).
+- **Units 10+ feet off the ground** — a checkbox.
+
+Both are informational only — neither affects price or duration.
 
 Both are passed along as free text in the booking's prefilled "notes" field when someone clicks "Get This Quote & Book" (see below) — the technician sees them on the Cal.com booking itself, no separate form submission needed.
 

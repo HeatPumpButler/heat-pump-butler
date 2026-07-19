@@ -493,7 +493,7 @@
 
           <label style="margin-top:16px; display:flex; align-items:flex-start; gap:10px; font-weight:600; cursor:pointer;">
             <input type="checkbox" id="elevated" onchange="updateQuote()" style="width:18px; height:18px; margin-top:2px;">
-            <span>Any units mounted more than 10 feet off the ground? <span style="color:var(--muted); font-weight:400;">(+$10 per unit)</span></span>
+            <span>Any units mounted more than 10 feet off the ground?</span>
           </label>
         </div>
         <div class="calc-result">
@@ -737,15 +737,11 @@
   let odus = 1;
   let currentDuration = BASE_DURATION;
 
-  const ELEVATED_SURCHARGE_PER_UNIT = 10; // per unit, if any units are 10+ ft off the ground
-
-  function computeQuote(idus, odus, elevated) {
+  function computeQuote(idus, odus) {
     const extra = (idus - 1) + (odus - 1);
-    const elevatedFee = elevated ? (idus + odus) * ELEVATED_SURCHARGE_PER_UNIT : 0;
     return {
-      price: BASE_PRICE + extra * PRICE_PER_EXTRA + elevatedFee,
+      price: BASE_PRICE + extra * PRICE_PER_EXTRA,
       duration: snapDuration(BASE_DURATION + extra * DURATION_PER_EXTRA),
-      elevatedFee: elevatedFee,
     };
   }
 
@@ -765,13 +761,11 @@
   }
 
   function updateQuote() {
-    const elevated = document.getElementById('elevated').checked;
-    const { price, duration, elevatedFee } = computeQuote(idus, odus, elevated);
+    const { price, duration } = computeQuote(idus, odus);
     currentDuration = duration;
 
     document.getElementById('calc-total').textContent = '$' + price;
-    let breakdown = idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
-    if (elevatedFee > 0) breakdown += ' · +$' + elevatedFee + ' elevated unit fee';
+    const breakdown = idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
     document.getElementById('calc-breakdown').textContent = breakdown;
     document.getElementById('calc-duration').textContent = formatDuration(duration);
   }
