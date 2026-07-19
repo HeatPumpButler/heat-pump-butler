@@ -702,6 +702,19 @@
   const MAX_IDU = 6;
   const MAX_ODU = 3;
 
+  // Must match the "Multiple durations" options on the Cal.com "Deep Cleaning"
+  // event type. Cal.com's own duration picker only offers this fixed set, so
+  // we round the computed duration UP to the nearest one it actually has —
+  // better to over-allocate the technician's time than under-allocate it.
+  const AVAILABLE_DURATIONS = [30, 60, 90, 120, 150, 180, 240, 300, 360, 420, 480];
+
+  function snapDuration(minutes) {
+    for (const d of AVAILABLE_DURATIONS) {
+      if (d >= minutes) return d;
+    }
+    return AVAILABLE_DURATIONS[AVAILABLE_DURATIONS.length - 1];
+  }
+
   let idus = 1;
   let odus = 1;
   let currentDuration = BASE_DURATION;
@@ -710,7 +723,7 @@
     const extra = (idus - 1) + (odus - 1);
     return {
       price: BASE_PRICE + extra * PRICE_PER_EXTRA,
-      duration: BASE_DURATION + extra * DURATION_PER_EXTRA,
+      duration: snapDuration(BASE_DURATION + extra * DURATION_PER_EXTRA),
     };
   }
 

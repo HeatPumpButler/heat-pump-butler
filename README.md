@@ -19,19 +19,17 @@ The Pricing section includes a live estimator (`index.html`, `<script>` near the
 - Base visit (1 IDU + 1 ODU): **$199**, ~1 hour
 - Every additional unit, either kind: **+$75** and **+30 minutes**
 
-So price and appointment length both scale off the same "extra units" count. Update `BASE_PRICE`, `PRICE_PER_EXTRA`, `BASE_DURATION`, and `DURATION_PER_EXTRA` in that script to change the formula, or `MAX_IDU` / `MAX_ODU` to change the stepper caps (currently 6 IDUs, 3 ODUs — a max of 7 "extra" units, i.e. up to 270 minutes).
+So price and appointment length both scale off the same "extra units" count. The raw duration is then rounded **up** to the nearest length Cal.com actually offers (see below) — better to over-allocate the technician's time than under-allocate it. Update `BASE_PRICE`, `PRICE_PER_EXTRA`, `BASE_DURATION`, and `DURATION_PER_EXTRA` in that script to change the formula, or `MAX_IDU` / `MAX_ODU` to change the stepper caps (currently 6 IDUs, 3 ODUs).
 
 ## Booking widget (Cal.com)
 
 The "Book Now" buttons scroll to a booking section that embeds [Cal.com](https://cal.com)'s free scheduler — no backend required. Clicking **"Get This Quote & Book"** in the calculator re-loads the embed with the matching appointment duration pre-selected, so the time slots shown actually reflect the job size.
 
-This depends on one piece of setup in your Cal.com account:
+This depends on the **Deep Cleaning** event type under account `kevin-cutler-gfyocj` (slug `deep-cleaning`, full link `kevin-cutler-gfyocj/deep-cleaning`), which has **"Allow booker to select duration"** turned on with these options, in minutes: `30, 60, 90, 120, 150, 180, 240, 300, 360, 420, 480`.
 
-1. Create (or rename) an event type with the slug **`deep-clean`** under your account `kevin-cutler-gfyocj`, so the full link is `kevin-cutler-gfyocj/deep-clean`.
-2. In that event type's **Duration** settings, turn on **"Allow booker to select duration"** (multiple durations) and add these options, in minutes: `60, 90, 120, 150, 180, 210, 240, 270`. Set the default to `60`.
-3. That's it — the site appends `?duration=N` to the booking link to preselect the right length whenever someone uses the calculator.
+The site's `AVAILABLE_DURATIONS` array (in the same `<script>` as the calculator) must always match that list exactly — if you add/remove duration options in Cal.com, update the array here too, since the calculator snaps its computed duration up to the nearest value in this list.
 
-If you'd rather use a different event slug, update `CAL_LINK` near the bottom of `index.html` (currently `"kevin-cutler-gfyocj/deep-clean"`).
+If you rename the event type or use a different slug, update `CAL_LINK` near the bottom of `index.html` (currently `"kevin-cutler-gfyocj/deep-cleaning"`).
 
 Also connect Google Calendar inside Cal.com (Settings → Apps → Google Calendar) so bookings check your real availability and land on your calendar automatically.
 
