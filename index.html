@@ -441,42 +441,50 @@
       <div class="section-head">
         <span class="eyebrow">Simple, Transparent Pricing</span>
         <h2>One premium service, one fair price</h2>
-        <p>Outdoor unit cleaning is included with every visit.</p>
+        <p>1 indoor + 1 outdoor unit is our base visit. Every additional unit of either kind is $75.</p>
       </div>
       <div class="pricing-grid">
         <div class="price-card">
-          <h4>1 Indoor Unit</h4>
+          <h4>1 Indoor + 1 Outdoor</h4>
           <div class="amount">$199</div>
-          <div class="note">Includes outdoor unit cleaning</div>
+          <div class="note">~1 hour appointment</div>
         </div>
         <div class="price-card popular">
           <span class="badge-popular">Most Popular</span>
-          <h4>2 Indoor Units</h4>
+          <h4>2 Indoor + 1 Outdoor</h4>
           <div class="amount">$274</div>
-          <div class="note">Includes outdoor unit cleaning</div>
+          <div class="note">~1.5 hour appointment</div>
         </div>
         <div class="price-card">
-          <h4>3+ Indoor Units</h4>
-          <div class="amount">$199<span> + $75 each</span></div>
-          <div class="note">Additional unit, outdoor included</div>
+          <h4>Additional Units</h4>
+          <div class="amount">+$75<span> each</span></div>
+          <div class="note">+30 min per unit, indoor or outdoor</div>
         </div>
       </div>
 
       <div class="calculator">
         <div class="calc-controls">
-          <label>How many indoor units do you have?</label>
+          <label>Indoor units (IDUs)</label>
           <div class="stepper">
-            <button type="button" onclick="changeUnits(-1)" aria-label="Decrease units">−</button>
-            <span class="count" id="unit-count">1</span>
-            <button type="button" onclick="changeUnits(1)" aria-label="Increase units">+</button>
+            <button type="button" onclick="changeUnits('idu', -1)" aria-label="Decrease indoor units">−</button>
+            <span class="count" id="idu-count">1</span>
+            <button type="button" onclick="changeUnits('idu', 1)" aria-label="Increase indoor units">+</button>
           </div>
-          <p class="hint">Outdoor unit cleaning is always included at no extra charge.</p>
+          <label style="margin-top:20px;">Outdoor units (ODUs)</label>
+          <div class="stepper">
+            <button type="button" onclick="changeUnits('odu', -1)" aria-label="Decrease outdoor units">−</button>
+            <span class="count" id="odu-count">1</span>
+            <button type="button" onclick="changeUnits('odu', 1)" aria-label="Increase outdoor units">+</button>
+          </div>
+          <p class="hint">Base visit is 1 IDU + 1 ODU. Every additional unit (either kind) adds $75 and 30 minutes.</p>
         </div>
         <div class="calc-result">
           <div class="label">Estimated Price</div>
           <div class="total" id="calc-total">$199</div>
-          <div class="breakdown" id="calc-breakdown">1 indoor unit</div>
-          <a href="#contact" class="btn btn-primary" style="margin-top:16px;">Get This Quote</a>
+          <div class="breakdown" id="calc-breakdown">1 indoor · 1 outdoor</div>
+          <div class="label" style="margin-top:14px;">Estimated Appointment Length</div>
+          <div class="total" id="calc-duration" style="font-size:1.6rem;">1 hour</div>
+          <a href="#booking" class="btn btn-primary" style="margin-top:16px;" onclick="bookAppointment()">Get This Quote &amp; Book</a>
         </div>
       </div>
     </div>
@@ -581,6 +589,7 @@
         <span class="eyebrow">Pick a Time</span>
         <h2>Book your appointment online</h2>
         <p>Choose a time that works for you — you'll get an instant confirmation and reminder.</p>
+        <p id="booking-duration-note" style="font-weight:700; color: var(--navy); margin-top:8px;">Showing availability for a 1 hour appointment. Use the calculator above to match your unit count.</p>
       </div>
       <div id="cal-booking-embed" style="width:100%; min-height:600px; background:white; border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden;"></div>
     </div>
@@ -685,34 +694,65 @@
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  const BASE_PRICE = 199;
-  const ADDITIONAL_UNIT_PRICE = 75;
-  const TWO_UNIT_PRICE = 274;
-  let units = 1;
+  const BASE_PRICE = 199;       // 1 IDU + 1 ODU
+  const PRICE_PER_EXTRA = 75;   // each additional unit, either kind
+  const BASE_DURATION = 60;     // minutes, 1 IDU + 1 ODU
+  const DURATION_PER_EXTRA = 30; // minutes, each additional unit
 
-  function calcPrice(n) {
-    if (n <= 1) return BASE_PRICE;
-    if (n === 2) return TWO_UNIT_PRICE;
-    return BASE_PRICE + (n - 1) * ADDITIONAL_UNIT_PRICE;
+  const MAX_IDU = 6;
+  const MAX_ODU = 3;
+
+  let idus = 1;
+  let odus = 1;
+  let currentDuration = BASE_DURATION;
+
+  function computeQuote(idus, odus) {
+    const extra = (idus - 1) + (odus - 1);
+    return {
+      price: BASE_PRICE + extra * PRICE_PER_EXTRA,
+      duration: BASE_DURATION + extra * DURATION_PER_EXTRA,
+    };
   }
 
-  function changeUnits(delta) {
-    units = Math.max(1, Math.min(10, units + delta));
-    document.getElementById('unit-count').textContent = units;
-    const total = calcPrice(units);
-    document.getElementById('calc-total').textContent = '$' + total;
-    const breakdown = units === 1
-      ? '1 indoor unit'
-      : units + ' indoor units';
-    document.getElementById('calc-breakdown').textContent = breakdown + ' · outdoor unit included';
+  function formatDuration(minutes) {
+    if (minutes % 60 === 0) return (minutes / 60) + (minutes === 60 ? ' hour' : ' hours');
+    const hours = Math.floor(minutes / 60);
+    const rem = minutes % 60;
+    return hours + ' hr ' + rem + ' min';
+  }
+
+  function changeUnits(type, delta) {
+    if (type === 'idu') idus = Math.max(1, Math.min(MAX_IDU, idus + delta));
+    if (type === 'odu') odus = Math.max(1, Math.min(MAX_ODU, odus + delta));
+
+    document.getElementById('idu-count').textContent = idus;
+    document.getElementById('odu-count').textContent = odus;
+
+    const { price, duration } = computeQuote(idus, odus);
+    currentDuration = duration;
+
+    document.getElementById('calc-total').textContent = '$' + price;
+    document.getElementById('calc-breakdown').textContent =
+      idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
+    document.getElementById('calc-duration').textContent = formatDuration(duration);
+  }
+
+  function bookAppointment() {
+    loadCalEmbed(currentDuration);
+    const note = document.getElementById('booking-duration-note');
+    if (note) note.textContent = 'Showing availability for a ' + formatDuration(currentDuration) + ' appointment (' + idus + ' indoor, ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's') + ').';
   }
 </script>
 
 <!--
   BOOKING WIDGET — powered by Cal.com (free plan, no backend required).
-  Connected to Cal.com username "kevin-cutler-gfyocj" — shows all of that
-  account's public event types. To point at one specific event type instead,
-  set CAL_LINK to "kevin-cutler-gfyocj/your-event-slug".
+
+  Connected to Cal.com event type "kevin-cutler-gfyocj/deep-clean".
+  To make appointment length follow the quote calculator above, that event
+  type needs "Multiple durations" turned on in Cal.com (Event Type ->
+  Duration tab -> enable "Allow booker to select duration") with these
+  options added: 60, 90, 120, 150, 180, 210, 240, 270 (minutes), default 60.
+  The embed then appends ?duration=N to preselect the right length.
 -->
 <script type="text/javascript">
   (function (C, A, L) {
@@ -742,15 +782,22 @@
     };
   })(window, "https://app.cal.com/embed/embed.js", "init");
 
-  const CAL_LINK = "kevin-cutler-gfyocj"; // Cal.com username — shows all public event types
+  const CAL_LINK = "kevin-cutler-gfyocj/deep-clean"; // TODO: create this event type with multiple durations enabled (see comment above)
 
   Cal("init", "deep-clean", { origin: "https://cal.com" });
-  Cal.ns["deep-clean"]("inline", {
-    elementOrSelector: "#cal-booking-embed",
-    config: { layout: "month_view" },
-    calLink: CAL_LINK,
-  });
   Cal.ns["deep-clean"]("ui", { hideEventTypeDetails: false, layout: "month_view" });
+
+  function loadCalEmbed(duration) {
+    const container = document.getElementById('cal-booking-embed');
+    if (container) container.innerHTML = '';
+    Cal.ns["deep-clean"]("inline", {
+      elementOrSelector: "#cal-booking-embed",
+      config: { layout: "month_view" },
+      calLink: CAL_LINK + "?duration=" + duration,
+    });
+  }
+
+  loadCalEmbed(BASE_DURATION);
 </script>
 
 </body>

@@ -14,13 +14,24 @@ https://heatpumpbutler.github.io/heat-pump-butler/
 
 ## Quoting calculator
 
-The Pricing section includes a live estimator (`index.html`, `<script>` near the bottom) that computes price from the number of indoor units: $199 for 1 unit, $274 for 2, then +$75 per additional unit. Outdoor unit cleaning is always included. Update `BASE_PRICE`, `TWO_UNIT_PRICE`, and `ADDITIONAL_UNIT_PRICE` there if pricing changes.
+The Pricing section includes a live estimator (`index.html`, `<script>` near the bottom) with separate steppers for indoor units (IDUs) and outdoor units (ODUs):
+
+- Base visit (1 IDU + 1 ODU): **$199**, ~1 hour
+- Every additional unit, either kind: **+$75** and **+30 minutes**
+
+So price and appointment length both scale off the same "extra units" count. Update `BASE_PRICE`, `PRICE_PER_EXTRA`, `BASE_DURATION`, and `DURATION_PER_EXTRA` in that script to change the formula, or `MAX_IDU` / `MAX_ODU` to change the stepper caps (currently 6 IDUs, 3 ODUs — a max of 7 "extra" units, i.e. up to 270 minutes).
 
 ## Booking widget (Cal.com)
 
-The "Book Now" buttons scroll to a booking section that embeds [Cal.com](https://cal.com)'s free scheduler — no backend required. It's connected to the Cal.com account `kevin-cutler-gfyocj`, showing all of that account's public event types.
+The "Book Now" buttons scroll to a booking section that embeds [Cal.com](https://cal.com)'s free scheduler — no backend required. Clicking **"Get This Quote & Book"** in the calculator re-loads the embed with the matching appointment duration pre-selected, so the time slots shown actually reflect the job size.
 
-To point the embed at one specific event type instead of the full list, open `index.html`, find `const CAL_LINK = "kevin-cutler-gfyocj";` near the bottom, and change it to `"kevin-cutler-gfyocj/your-event-slug"`.
+This depends on one piece of setup in your Cal.com account:
+
+1. Create (or rename) an event type with the slug **`deep-clean`** under your account `kevin-cutler-gfyocj`, so the full link is `kevin-cutler-gfyocj/deep-clean`.
+2. In that event type's **Duration** settings, turn on **"Allow booker to select duration"** (multiple durations) and add these options, in minutes: `60, 90, 120, 150, 180, 210, 240, 270`. Set the default to `60`.
+3. That's it — the site appends `?duration=N` to the booking link to preselect the right length whenever someone uses the calculator.
+
+If you'd rather use a different event slug, update `CAL_LINK` near the bottom of `index.html` (currently `"kevin-cutler-gfyocj/deep-clean"`).
 
 Also connect Google Calendar inside Cal.com (Settings → Apps → Google Calendar) so bookings check your real availability and land on your calendar automatically.
 
