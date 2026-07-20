@@ -321,7 +321,7 @@
       <a href="#faq">FAQ</a>
       <a href="#service-area">Service Area</a>
     </div>
-    <a href="#contact" class="btn btn-primary nav-cta desktop" style="display:inline-block;">Book Now</a>
+    <a href="#booking" class="btn btn-primary nav-cta desktop" style="display:inline-block;">Book Now</a>
     <button class="menu-toggle" aria-label="Toggle menu" onclick="document.querySelector('.mobile-menu').classList.toggle('open')">☰</button>
   </nav>
   <div class="mobile-menu">
@@ -330,7 +330,7 @@
     <a href="#reviews">Reviews</a>
     <a href="#faq">FAQ</a>
     <a href="#service-area">Service Area</a>
-    <a href="#contact">Book Now</a>
+    <a href="#booking">Book Now</a>
   </div>
 </header>
 
@@ -343,7 +343,7 @@
         <h1>Professional Heat Pump Deep Cleaning</h1>
         <p class="lead">Improve air quality, reduce energy costs, and extend the life of your mini-split with expert deep cleaning from Heat Pump Butler.</p>
         <div class="hero-actions">
-          <a href="#contact" class="btn btn-primary">Book a Cleaning</a>
+          <a href="#booking" class="btn btn-primary">Book a Cleaning</a>
           <a href="#contact" class="btn btn-secondary">Call Now</a>
         </div>
         <div class="stars">★★★★★</div>
@@ -420,7 +420,7 @@
           <li>Before &amp; after photos</li>
           <li>Digital service report</li>
         </ul>
-        <a href="#contact" class="btn btn-navy">Book Your Cleaning</a>
+        <a href="#booking" class="btn btn-navy">Book Your Cleaning</a>
       </div>
       <div class="why-copy">
         <span class="eyebrow">Why Heat Pump Butler?</span>
@@ -570,8 +570,19 @@
           <h2>Your heat pump works hard all year.</h2>
           <p>Give it the care it deserves — book your professional deep cleaning today.</p>
         </div>
-        <a href="#contact" class="btn btn-primary">Book Your Cleaning</a>
+        <a href="#booking" class="btn btn-primary">Book Your Cleaning</a>
       </div>
+    </div>
+  </section>
+
+  <section id="booking" style="background: var(--ice);">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Pick a Time</span>
+        <h2>Book your appointment online</h2>
+        <p>Choose a time that works for you — you'll get an instant confirmation and reminder.</p>
+      </div>
+      <div id="cal-booking-embed" style="width:100%; min-height:600px; background:white; border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden;"></div>
     </div>
   </section>
 
@@ -695,6 +706,53 @@
       : units + ' indoor units';
     document.getElementById('calc-breakdown').textContent = breakdown + ' · outdoor unit included';
   }
+</script>
+
+<!--
+  BOOKING WIDGET — powered by Cal.com (free plan, no backend required).
+  To activate real booking:
+    1. Create a free account at https://cal.com
+    2. Create an event type (e.g. "Deep Clean Consultation") and set your availability
+    3. Replace CAL_LINK below with "your-username/your-event-slug"
+  Until then this embed will show Cal.com's placeholder/error state.
+-->
+<script type="text/javascript">
+  (function (C, A, L) {
+    let p = function (a, ar) { a.q.push(ar); };
+    let d = C.document;
+    C.Cal = C.Cal || function () {
+      let cal = C.Cal;
+      let ar = arguments;
+      if (!cal.loaded) {
+        cal.ns = {};
+        cal.q = cal.q || [];
+        d.head.appendChild(d.createElement("script")).src = A;
+        cal.loaded = true;
+      }
+      if (ar[0] === L) {
+        const api = function () { p(api, arguments); };
+        const namespace = ar[1];
+        api.q = api.q || [];
+        if (typeof namespace === "string") {
+          cal.ns[namespace] = cal.ns[namespace] || api;
+          p(cal.ns[namespace], ar);
+          p(cal, ["initNamespace", namespace]);
+        } else p(cal, ar);
+        return;
+      }
+      p(cal, ar);
+    };
+  })(window, "https://app.cal.com/embed/embed.js", "init");
+
+  const CAL_LINK = "heat-pump-butler/deep-clean"; // TODO: replace with your real Cal.com username/event-slug
+
+  Cal("init", "deep-clean", { origin: "https://cal.com" });
+  Cal.ns["deep-clean"]("inline", {
+    elementOrSelector: "#cal-booking-embed",
+    config: { layout: "month_view" },
+    calLink: CAL_LINK,
+  });
+  Cal.ns["deep-clean"]("ui", { hideEventTypeDetails: false, layout: "month_view" });
 </script>
 
 </body>
