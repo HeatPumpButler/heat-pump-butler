@@ -4,7 +4,7 @@ A one-page marketing site for Heat Pump Butler — professional residential heat
 
 ## Live site
 
-https://heatpumpbutlers.com (custom domain, via GitHub Pages — also reachable at https://heatpumpbutler.github.io/heat-pump-butler/)
+https://heatpumpbutler.com (custom domain, via GitHub Pages — also reachable at https://heatpumpbutler.github.io/heat-pump-butler/)
 
 ## Structure
 
@@ -51,7 +51,7 @@ The contact form at the bottom is currently a demo placeholder — submitting it
 
 ## Custom domain
 
-`heatpumpbutlers.com` is configured as the GitHub Pages custom domain via the `CNAME` file at the repo root. DNS at the registrar needs:
+`heatpumpbutler.com` is configured as the GitHub Pages custom domain via the `CNAME` file at the repo root. DNS at the registrar needs:
 
 - 4 `A` records for the apex domain, pointing to: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
 - 1 `CNAME` record: `www` → `heatpumpbutler.github.io`
