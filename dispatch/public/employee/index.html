@@ -3,45 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Jobs | Heat Pump Butler Dispatch</title>
+<title>Schedule | Heat Pump Butler Dispatch</title>
 <link rel="icon" href="../../assets/logo-mark-hp.png">
 <link rel="stylesheet" href="../shared/styles.css">
 </head>
-<body>
+<body class="mobile-app">
 
-<header class="app-header">
-  <nav class="app-nav">
-    <a href="index.html" class="app-logo">
-      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
-      Dispatch
-    </a>
-    <div class="flex-gap" style="align-items:center;">
-      <span class="user-chip" id="user-chip"></span>
-      <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
-    </div>
-  </nav>
+<header class="mobile-header" style="border-radius:0 0 0 0; padding-bottom: 18px;">
+  <div class="top-row">
+    <h1>Schedule</h1>
+    <button class="icon-btn" id="logout-btn" aria-label="Sign out">&#8594;</button>
+  </div>
 </header>
 
-<main class="app-main">
-  <div class="container">
-    <div class="page-head">
-      <div>
-        <h1>My Jobs</h1>
-        <p>Jobs assigned to you</p>
-      </div>
-    </div>
-
-    <div class="tabs">
-      <button class="tab active" data-filter="upcoming">Upcoming</button>
-      <button class="tab" data-filter="completed">Completed</button>
-      <button class="tab" data-filter="all">All</button>
-    </div>
-
-    <div class="card" id="jobs-card">
-      <div class="center-loading">Loading your jobs…</div>
-    </div>
+<div class="mobile-content" style="padding-top: 20px;">
+  <div class="tabs">
+    <button class="tab active" data-filter="upcoming">Upcoming</button>
+    <button class="tab" data-filter="completed">Completed</button>
+    <button class="tab" data-filter="all">All</button>
   </div>
-</main>
+
+  <div class="day-list" id="jobs-card">
+    <div class="center-loading">Loading your jobs…</div>
+  </div>
+</div>
+
+<nav class="bottom-tabs">
+  <a href="home.html"><span class="tab-icon">&#127968;</span>Home</a>
+  <a href="index.html" class="active"><span class="tab-icon">&#128197;</span>Schedule</a>
+</nav>
 
 <script type="module">
   import { requireRole, logout } from "../shared/auth.js";
@@ -49,9 +39,8 @@
 
   const session = await requireRole("employee");
   if (!session) throw new Error("redirecting");
-  const { user, profile } = session;
+  const { user } = session;
 
-  document.getElementById("user-chip").textContent = profile.displayName || profile.email;
   document.getElementById("logout-btn").addEventListener("click", async () => {
     await logout();
     location.href = "/login.html";
@@ -83,15 +72,13 @@
     card.innerHTML = jobs
       .map(
         (j) => `
-      <div class="job-item">
-        <div>
-          <h3>${escapeHtml(j.customerName)}</h3>
-          <div class="meta">${escapeHtml(j.address)} &middot; ${fmtDate(j.scheduledStart)}</div>
+      <div class="day-list-item" onclick="location.href='job.html?id=${j.id}'">
+        <span class="status-dot ${j.status}"></span>
+        <div style="flex:1;">
+          <div class="name">${escapeHtml(j.customerName)}</div>
+          <div class="sub">${escapeHtml(j.address)} &middot; ${fmtDate(j.scheduledStart)}</div>
         </div>
-        <div class="right">
-          <span class="badge badge-${j.status}">${j.status.replace("_", " ")}</span>
-          <a href="job.html?id=${j.id}" class="btn btn-primary btn-sm">Open</a>
-        </div>
+        <span class="badge badge-${j.status}">${j.status.replace("_", " ")}</span>
       </div>`
       )
       .join("");

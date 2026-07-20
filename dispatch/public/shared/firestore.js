@@ -11,6 +11,7 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./firebase.js";
 import { emptyChecklist } from "./checklist.js";
@@ -64,6 +65,7 @@ export async function createJob(data, createdBy) {
     scheduledEnd: data.scheduledEnd || null,
     notes: data.notes || "",
     unitCounts: data.unitCounts || null,
+    equipment: data.equipment || null, // { manufacturer, model, outdoorUnitSerial }
     source: "manual",
     calBookingUid: null,
     calEventTypeSlug: null,
@@ -90,6 +92,26 @@ export async function listJobsForEmployee(uid) {
     collection(db, JOBS),
     where("assignedTo", "==", uid),
     orderBy("scheduledStart", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** Jobs assigned to this employee whose scheduledStart falls on the given
+ * JS Date's calendar day (local time), ordered earliest first — used by
+ * the home dashboard's date strip / day overview. */
+export async function listJobsForEmployeeOnDate(uid, date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  const q = query(
+    collection(db, JOBS),
+    where("assignedTo", "==", uid),
+    where("scheduledStart", ">=", Timestamp.fromDate(start)),
+    where("scheduledStart", "<", Timestamp.fromDate(end)),
+    orderBy("scheduledStart", "asc")
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -145,6 +167,9 @@ export async function ensureDraftReport(jobId, employeeId) {
     checklist: emptyChecklist(),
     notes: "",
     status: "draft",
+    timerState: "not_started",
+    timerStartedAt: null,
+    timerElapsedSeconds: 0,
     submittedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -153,35 +178,75 @@ export async function ensureDraftReport(jobId, employeeId) {
   return { id: jobId, ...fresh };
 }
 
-export async function saveReportDraft(jobId, { checklist, notes }) {
+export async function saveReportNotes(jobId, notes) {
+  await setDoc(doc(db, REPORTS, jobId), { notes, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/** Merges a partial update ({ done, note }) into one checklist item without
+ * touching the others — Firestore's merge:true deep-merges nested map
+ * fields, so this only ever touches checklist.{itemKey}. */
+export async function updateChecklistItem(jobId, itemKey, updates) {
   await setDoc(
     doc(db, REPORTS, jobId),
-    { checklist, notes, updatedAt: serverTimestamp() },
+    { checklist: { [itemKey]: updates }, updatedAt: serverTimestamp() },
     { merge: true }
   );
 }
 
-export async function submitReport(jobId, { checklist, notes }) {
+export async function submitReport(jobId) {
   await setDoc(
     doc(db, REPORTS, jobId),
-    {
-      checklist,
-      notes,
-      status: "submitted",
-      submittedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
+    { status: "submitted", submittedAt: serverTimestamp(), updatedAt: serverTimestamp() },
     { merge: true }
   );
   await setJobStatus(jobId, "completed");
 }
 
+/* ---------------- Job timer (per-report, simple elapsed-time tracker) ---------------- */
+
+export async function startOrResumeTimer(jobId) {
+  await setDoc(
+    doc(db, REPORTS, jobId),
+    { timerState: "running", timerStartedAt: serverTimestamp(), updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+async function accumulateElapsed(jobId) {
+  const report = await getReport(jobId);
+  let elapsed = report.timerElapsedSeconds || 0;
+  if (report.timerState === "running" && report.timerStartedAt) {
+    elapsed += Math.max(0, (Date.now() - report.timerStartedAt.toMillis()) / 1000);
+  }
+  return elapsed;
+}
+
+export async function pauseTimer(jobId) {
+  const elapsed = await accumulateElapsed(jobId);
+  await setDoc(
+    doc(db, REPORTS, jobId),
+    { timerState: "paused", timerStartedAt: null, timerElapsedSeconds: elapsed, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+  return elapsed;
+}
+
+export async function finalizeTimer(jobId) {
+  const elapsed = await accumulateElapsed(jobId);
+  await setDoc(
+    doc(db, REPORTS, jobId),
+    { timerState: "stopped", timerStartedAt: null, timerElapsedSeconds: elapsed, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+  return elapsed;
+}
+
 /* ---------------- Photos (subcollection of reports) ---------------- */
 
-export async function addPhotoDoc(jobId, { storagePath, type, uploadedBy, employeeId }) {
+export async function addPhotoDoc(jobId, { storagePath, itemKey, uploadedBy, employeeId }) {
   const ref = await addDoc(collection(db, REPORTS, jobId, "photos"), {
     storagePath,
-    type,
+    itemKey: itemKey || null,
     uploadedBy,
     employeeId,
     uploadedAt: serverTimestamp(),

@@ -2,6 +2,9 @@
 // data: one admin, two employees, and a few sample jobs in different
 // statuses. Run this while `firebase emulators:start` is running, from
 // inside dispatch/seed: `npm install && npm run seed`.
+//
+// Safe to re-run — it clears out any previously seeded jobs/reports/photos
+// first, so you always get the exact same deterministic state.
 
 process.env.FIRESTORE_EMULATOR_HOST = "localhost:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "localhost:9099";
@@ -34,7 +37,27 @@ async function upsertUser({ email, password, displayName, role }) {
   return userRecord.uid;
 }
 
+async function clearCollection(ref) {
+  const snap = await ref.get();
+  for (const doc of snap.docs) {
+    const subcollections = await doc.ref.listCollections();
+    for (const sub of subcollections) {
+      await clearCollection(sub);
+    }
+    await doc.ref.delete();
+  }
+}
+
+function atTime(baseDate, hours, minutes) {
+  const d = new Date(baseDate);
+  d.setHours(hours, minutes, 0, 0);
+  return admin.firestore.Timestamp.fromDate(d);
+}
+
 async function main() {
+  await clearCollection(db.collection("jobs"));
+  await clearCollection(db.collection("reports"));
+
   const adminUid = await upsertUser({
     email: "owner@heatpumpbutler.test",
     password: "password123",
@@ -56,9 +79,11 @@ async function main() {
     role: "employee",
   });
 
-  const now = admin.firestore.Timestamp.now();
-  const inTwoDays = admin.firestore.Timestamp.fromMillis(now.toMillis() + 2 * 24 * 60 * 60 * 1000);
-  const tomorrow = admin.firestore.Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
+  const today = new Date();
+  const tomorrowDate = new Date(today);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const inTwoDaysDate = new Date(today);
+  inTwoDaysDate.setDate(inTwoDaysDate.getDate() + 2);
 
   await db.collection("jobs").add({
     status: "unassigned",
@@ -69,10 +94,11 @@ async function main() {
     customerPhone: "(617) 555-0142",
     customerEmail: "sarah.chen@example.com",
     address: "24 Dorchester Ave, South Boston, MA",
-    scheduledStart: inTwoDays,
+    scheduledStart: atTime(inTwoDaysDate, 14, 0),
     scheduledEnd: null,
     notes: "3 indoor units, 1 outdoor. Ground floor condo.",
     unitCounts: { indoor: 3, outdoor: 1 },
+    equipment: { manufacturer: "Daikin", model: null, outdoorUnitSerial: null },
     source: "manual",
     calBookingUid: null,
     calEventTypeSlug: null,
@@ -90,10 +116,11 @@ async function main() {
     customerPhone: "(617) 555-0198",
     customerEmail: "dpark@example.com",
     address: "112 Bunker Hill St, Charlestown, MA",
-    scheduledStart: tomorrow,
+    scheduledStart: atTime(tomorrowDate, 10, 30),
     scheduledEnd: null,
     notes: "Mitsubishi units, one is mounted high (10+ ft).",
     unitCounts: { indoor: 1, outdoor: 1 },
+    equipment: { manufacturer: "Mitsubishi Electric", model: "MSZ-FS18NA", outdoorUnitSerial: "D14VSA3610AA" },
     source: "manual",
     calBookingUid: null,
     calEventTypeSlug: null,
@@ -111,10 +138,35 @@ async function main() {
     customerPhone: "(617) 555-0110",
     customerEmail: null,
     address: "8 W Broadway, South Boston, MA",
-    scheduledStart: tomorrow,
+    scheduledStart: atTime(tomorrowDate, 13, 0),
     scheduledEnd: null,
     notes: "",
     unitCounts: { indoor: 2, outdoor: 1 },
+    equipment: { manufacturer: "LG", model: null, outdoorUnitSerial: null },
+    source: "manual",
+    calBookingUid: null,
+    calEventTypeSlug: null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdBy: adminUid,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // A job scheduled for TODAY, assigned to Mike, so the home dashboard's
+  // date strip / stats / "next job" card have something to show right away.
+  await db.collection("jobs").add({
+    status: "assigned",
+    assignedTo: employee1Uid,
+    assignedBy: adminUid,
+    assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+    customerName: "John Smith",
+    customerPhone: "(206) 555-0198",
+    customerEmail: "john.smith@example.com",
+    address: "123 Maple St, Seattle, WA 98101",
+    scheduledStart: atTime(today, 10, 30),
+    scheduledEnd: atTime(today, 12, 30),
+    notes: "Please check attic air handler. Homeowner has allergies.",
+    unitCounts: { indoor: 1, outdoor: 1 },
+    equipment: { manufacturer: "Daikin", model: "4TTR4024L1000A", outdoorUnitSerial: "D14VSA3610AA" },
     source: "manual",
     calBookingUid: null,
     calEventTypeSlug: null,
@@ -125,7 +177,7 @@ async function main() {
 
   console.log("\nSeed complete. Test logins (all password: password123):\n");
   console.log("  Admin:     owner@heatpumpbutler.test");
-  console.log("  Employee:  mike@heatpumpbutler.test   (has one assigned job)");
+  console.log("  Employee:  mike@heatpumpbutler.test   (has a job today + a job tomorrow)");
   console.log("  Employee:  jess@heatpumpbutler.test   (has one assigned job)");
   console.log("\nOpen http://localhost:5000/login.html to sign in.\n");
   process.exit(0);

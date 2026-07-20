@@ -3,42 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Job Detail | Heat Pump Butler Dispatch</title>
+<title>Job | Heat Pump Butler Dispatch</title>
 <link rel="icon" href="../../assets/logo-mark-hp.png">
 <link rel="stylesheet" href="../shared/styles.css">
 </head>
-<body>
+<body class="mobile-app">
 
-<header class="app-header">
-  <nav class="app-nav">
-    <a href="index.html" class="app-logo">
-      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
-      Dispatch
-    </a>
-    <a href="index.html" class="btn btn-secondary btn-sm">&larr; My Jobs</a>
-  </nav>
+<header class="mobile-header">
+  <div class="top-row back-row">
+    <a href="index.html" class="icon-btn" aria-label="Back">&#8592;</a>
+    <h1 id="page-title">Job details</h1>
+    <button class="icon-btn" id="share-btn" aria-label="Share job">&#9992;&#65039;</button>
+  </div>
 </header>
 
-<main class="app-main">
-  <div class="container" id="content">
-    <div class="center-loading">Loading job…</div>
-  </div>
-</main>
+<div class="mobile-content" id="content">
+  <div class="center-loading">Loading job…</div>
+</div>
 
 <script type="module">
   import { requireRole } from "../shared/auth.js";
   import {
     getJob,
     ensureDraftReport,
-    saveReportDraft,
+    saveReportNotes,
+    updateChecklistItem,
     submitReport,
     setJobStatus,
     listPhotos,
     addPhotoDoc,
-    deletePhotoDoc,
+    startOrResumeTimer,
+    pauseTimer,
+    finalizeTimer,
   } from "../shared/firestore.js";
-  import { uploadJobPhoto, deleteJobPhoto, getPhotoUrl } from "../shared/storage.js";
-  import { CHECKLIST_ITEMS } from "../shared/checklist.js";
+  import { uploadJobPhoto, getPhotoUrl } from "../shared/storage.js";
+  import { CHECKLIST_ITEMS, checklistProgress, firstIncompleteItem } from "../shared/checklist.js";
 
   const session = await requireRole("employee");
   if (!session) throw new Error("redirecting");
@@ -55,9 +54,7 @@
   let job;
   try {
     job = await getJob(jobId);
-  } catch (err) {
-    // Security rules deny reads on jobs not assigned to this employee —
-    // that surfaces as permission-denied here, not a null result.
+  } catch {
     job = null;
   }
 
@@ -66,19 +63,18 @@
     throw new Error("not your job");
   }
 
-  const report = await ensureDraftReport(jobId, user.uid);
-  const photos = await listPhotos(jobId);
+  let report = await ensureDraftReport(jobId, user.uid);
+  let photos = await loadPhotos();
+  let activeKey = firstIncompleteItem(report.checklist);
+  let timerInterval = null;
 
-  const withUrls = await Promise.all(
-    photos.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) }))
-  );
-  const beforePhotos = withUrls.filter((p) => p.type === "before");
-  const afterPhotos = withUrls.filter((p) => p.type === "after");
+  async function loadPhotos() {
+    const raw = await listPhotos(jobId);
+    return Promise.all(raw.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) })));
+  }
 
-  function fmtDate(ts) {
-    if (!ts) return "No date set";
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleString(undefined, { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  function photosFor(itemKey) {
+    return photos.filter((p) => p.itemKey === itemKey);
   }
 
   function esc(s) {
@@ -87,197 +83,265 @@
     return div.innerHTML;
   }
 
-  const isSubmitted = report.status === "submitted";
+  function fmtTime(ts) {
+    if (!ts) return "--";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
 
-  content.innerHTML = `
-    <div class="page-head">
-      <div>
-        <h1>${esc(job.customerName)}</h1>
-        <p>${esc(job.address)} &middot; ${fmtDate(job.scheduledStart)}</p>
-      </div>
-      <span class="badge badge-${job.status}" id="status-badge">${job.status.replace("_", " ")}</span>
-    </div>
+  function fmtElapsed(totalSeconds) {
+    const s = Math.max(0, Math.round(totalSeconds));
+    const hh = Math.floor(s / 3600);
+    const mm = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    return [hh, mm, ss].map((n) => String(n).padStart(2, "0")).join(":");
+  }
 
-    <div class="card">
-      <div class="field-row">
-        <div>
-          <label>Customer Phone</label>
-          <p>${esc(job.customerPhone) || "—"}</p>
-        </div>
-        <div>
-          <label>Units</label>
-          <p>${job.unitCounts ? `${job.unitCounts.indoor} indoor / ${job.unitCounts.outdoor} outdoor` : "—"}</p>
-        </div>
-      </div>
-      ${job.notes ? `<div class="mt-16"><label>Job Notes</label><p>${esc(job.notes)}</p></div>` : ""}
-      <div class="mt-16" id="start-job-row">
-        ${
-          job.status === "assigned"
-            ? `<button class="btn btn-navy" id="start-job-btn">Start Job</button>`
-            : ""
-        }
-      </div>
-    </div>
+  function currentElapsedSeconds() {
+    let base = report.timerElapsedSeconds || 0;
+    if (report.timerState === "running" && report.timerStartedAt) {
+      base += Math.max(0, (Date.now() - report.timerStartedAt.toMillis()) / 1000);
+    }
+    return base;
+  }
 
-    <div class="card mt-16">
-      <h2 style="font-size:1.1rem;color:var(--navy);margin-bottom:12px;">Service Checklist</h2>
-      <div class="checklist-box">
-        ${CHECKLIST_ITEMS.map(
-          (item) => `
-          <label class="checkbox-row">
-            <input type="checkbox" data-key="${item.key}" ${report.checklist[item.key] ? "checked" : ""} ${isSubmitted ? "disabled" : ""}>
-            <span>${item.label}</span>
-          </label>`
-        ).join("")}
-      </div>
+  document.getElementById("share-btn").addEventListener("click", async () => {
+    const summary = `${job.customerName} — ${job.address} — ${fmtTime(job.scheduledStart)}`;
+    try {
+      await navigator.clipboard.writeText(summary);
+      alert("Job summary copied to clipboard.");
+    } catch {
+      alert(summary);
+    }
+  });
 
-      <div class="field">
-        <label for="notes">Notes</label>
-        <textarea id="notes" placeholder="Anything worth noting about this job..." ${isSubmitted ? "disabled" : ""}>${esc(report.notes)}</textarea>
-      </div>
+  function render() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
 
-      <div class="photo-section">
-        <h4>Before Photos</h4>
-        <div class="photo-grid" id="before-grid"></div>
-        ${isSubmitted ? "" : `<label class="photo-upload-btn">+ Add before photo(s)<input type="file" accept="image/*" capture="environment" multiple hidden id="before-input"></label>`}
-      </div>
+    const isSubmitted = report.status === "submitted";
+    const started = job.status === "in_progress" || job.status === "completed";
+    document.getElementById("page-title").textContent = isSubmitted
+      ? "Job completed"
+      : started
+      ? "Job in progress"
+      : "Job details";
 
-      <div class="photo-section">
-        <h4>After Photos</h4>
-        <div class="photo-grid" id="after-grid"></div>
-        ${isSubmitted ? "" : `<label class="photo-upload-btn">+ Add after photo(s)<input type="file" accept="image/*" capture="environment" multiple hidden id="after-input"></label>`}
-      </div>
-
-      ${
-        isSubmitted
-          ? `<div class="success-msg show mt-16">Report submitted. Thanks!</div>`
-          : `<div class="flex-gap mt-24">
-              <button class="btn btn-secondary" id="save-draft-btn">Save Draft</button>
-              <button class="btn btn-primary" id="submit-btn">Submit Report</button>
-            </div>`
+    if (!started) {
+      renderDetailsMode();
+    } else {
+      renderProgressMode(isSubmitted);
+      if (!isSubmitted && report.timerState === "running") {
+        timerInterval = setInterval(() => {
+          const el = document.getElementById("timer-display");
+          if (el) el.textContent = fmtElapsed(currentElapsedSeconds());
+        }, 1000);
       }
-      <div class="error-msg" id="error-msg"></div>
-    </div>
-  `;
+    }
+  }
 
-  if (job.status === "assigned") {
-    document.getElementById("start-job-btn")?.addEventListener("click", async () => {
+  function renderDetailsMode() {
+    const progress = checklistProgress(report.checklist);
+    content.innerHTML = `
+      <div class="card">
+        <h2 style="font-size:1.15rem; color:var(--navy);">${esc(job.customerName)}</h2>
+        <p class="text-muted mt-8">${esc(job.customerPhone) || "No phone on file"}</p>
+        <p class="text-muted">${esc(job.address)}</p>
+        <p class="mt-8" style="font-weight:600; color:var(--navy);">${fmtTime(job.scheduledStart)}${job.scheduledEnd ? " – " + fmtTime(job.scheduledEnd) : ""}</p>
+      </div>
+
+      ${job.equipment && (job.equipment.manufacturer || job.equipment.model || job.equipment.outdoorUnitSerial) ? `
+      <div class="mobile-section-title mt-16"><h2>Equipment</h2></div>
+      <div class="equipment-card">
+        ${job.equipment.manufacturer ? `<div class="equipment-row"><span class="k">Manufacturer</span><span class="v">${esc(job.equipment.manufacturer)}</span></div>` : ""}
+        ${job.equipment.model ? `<div class="equipment-row"><span class="k">Model</span><span class="v">${esc(job.equipment.model)} <button class="copy-btn" id="copy-model" aria-label="Copy model">&#128203;</button></span></div>` : ""}
+        ${job.equipment.outdoorUnitSerial ? `<div class="equipment-row"><span class="k">Outdoor Unit Serial</span><span class="v">${esc(job.equipment.outdoorUnitSerial)}</span></div>` : ""}
+      </div>` : ""}
+
+      ${job.notes ? `
+      <div class="mobile-section-title mt-16"><h2>Customer notes</h2></div>
+      <div class="card">${esc(job.notes)}</div>` : ""}
+
+      <div class="mobile-section-title mt-16"><h2>Job checklist</h2><span class="text-muted" style="font-size:0.85rem;">${progress.done} of ${progress.total} completed</span></div>
+      <div class="card">
+        <ul>
+          ${CHECKLIST_ITEMS.map((item) => `<li style="padding:6px 0;">${esc(item.label)}</li>`).join("")}
+        </ul>
+      </div>
+
+      <button class="btn btn-primary btn-block mt-24" id="start-btn">Start Job</button>
+    `;
+
+    document.getElementById("copy-model")?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(job.equipment.model);
+      } catch {}
+    });
+
+    document.getElementById("start-btn").addEventListener("click", async () => {
       await setJobStatus(jobId, "in_progress");
-      document.getElementById("status-badge").textContent = "in progress";
-      document.getElementById("status-badge").className = "badge badge-in_progress";
-      document.getElementById("start-job-row").innerHTML = "";
+      await startOrResumeTimer(jobId);
+      job.status = "in_progress";
+      report = await ensureDraftReport(jobId, user.uid);
+      activeKey = firstIncompleteItem(report.checklist);
+      render();
     });
   }
 
-  function renderPhotoGrid(gridId, list) {
-    const grid = document.getElementById(gridId);
-    grid.innerHTML = list
-      .map(
-        (p) => `
-      <div class="photo-thumb" data-photo-id="${p.id}">
-        <img src="${p.url}" alt="job photo">
-        ${isSubmitted ? "" : `<button class="remove-btn" data-photo-id="${p.id}" data-storage-path="${p.storagePath}" aria-label="Remove photo">&times;</button>`}
-      </div>`
-      )
-      .join("");
+  function renderProgressMode(isSubmitted) {
+    const progress = checklistProgress(report.checklist);
+    const isPaused = report.timerState === "paused";
 
-    grid.querySelectorAll(".remove-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const photoId = btn.dataset.photoId;
-        const storagePath = btn.dataset.storagePath;
-        btn.closest(".photo-thumb").style.opacity = "0.4";
+    content.innerHTML = `
+      <div class="card">
+        <h2 style="font-size:1.05rem; color:var(--navy);">${esc(job.customerName)}</h2>
+        <p class="text-muted mt-8">${esc(job.address)}</p>
+      </div>
+
+      <div class="progress-header mt-16">
+        <span class="frac">${progress.done} of ${progress.total} completed</span>
+        <span class="pct">${progress.percent}%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${progress.percent}%;"></div></div>
+
+      ${!isSubmitted ? `
+      <div class="timer-bar">
+        <span id="timer-display" class="timer-display">${fmtElapsed(currentElapsedSeconds())}</span>
+        <button class="btn ${isPaused ? "btn-primary" : "btn-secondary"} btn-sm" id="pause-resume-btn">${isPaused ? "Resume" : "Pause"}</button>
+      </div>` : `<p class="text-muted mt-16">Total time: ${fmtElapsed(report.timerElapsedSeconds || 0)}</p>`}
+
+      <div class="checklist-items mt-16" id="checklist-items"></div>
+
+      <div class="card mt-24">
+        <label for="overall-notes">Overall notes</label>
+        <textarea id="overall-notes" placeholder="Anything else worth noting about this job..." ${isSubmitted ? "disabled" : ""}>${esc(report.notes)}</textarea>
+      </div>
+
+      ${isSubmitted
+        ? `<div class="success-msg show mt-16">Report submitted. Thanks!</div>`
+        : `<button class="btn btn-primary btn-block mt-16" id="submit-btn">Submit Report</button>`
+      }
+      <div class="error-msg" id="error-msg"></div>
+    `;
+
+    renderChecklistItems(isSubmitted);
+
+    if (!isSubmitted) {
+      document.getElementById("pause-resume-btn").addEventListener("click", async () => {
+        const btn = document.getElementById("pause-resume-btn");
+        btn.disabled = true;
+        if (isPaused) {
+          await startOrResumeTimer(jobId);
+        } else {
+          await pauseTimer(jobId);
+        }
+        report = await ensureDraftReport(jobId, user.uid);
+        render();
+      });
+
+      document.getElementById("overall-notes").addEventListener("change", async (e) => {
+        await saveReportNotes(jobId, e.target.value);
+      });
+
+      document.getElementById("submit-btn").addEventListener("click", async (e) => {
+        if (!confirm("Submit this report? You won't be able to edit it afterward.")) return;
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> Submitting…';
         try {
-          await deletePhotoDoc(jobId, photoId);
-          await deleteJobPhoto(storagePath);
-          const idx = list.findIndex((p) => p.id === photoId);
-          if (idx > -1) list.splice(idx, 1);
-          renderPhotoGrid(gridId, list);
+          await saveReportNotes(jobId, document.getElementById("overall-notes").value);
+          await finalizeTimer(jobId);
+          await submitReport(jobId);
+          location.reload();
         } catch (err) {
           console.error(err);
-          btn.closest(".photo-thumb").style.opacity = "1";
+          document.getElementById("error-msg").textContent = "Couldn't submit the report. Please try again.";
+          document.getElementById("error-msg").classList.add("show");
+          btn.disabled = false;
+          btn.textContent = "Submit Report";
         }
+      });
+    }
+  }
+
+  function renderChecklistItems(isSubmitted) {
+    const wrap = document.getElementById("checklist-items");
+    wrap.innerHTML = CHECKLIST_ITEMS.map((item) => {
+      const state = report.checklist[item.key] || { done: false, note: "" };
+      const isActive = !isSubmitted && !state.done && item.key === activeKey;
+      const cls = state.done ? "done" : isActive ? "active" : "pending";
+      const itemPhotos = photosFor(item.key);
+
+      return `
+      <div class="checklist-item-card ${cls}" data-key="${item.key}">
+        <div class="row" data-toggle="${item.key}">
+          <div class="check-circle">${state.done ? "&#10003;" : ""}</div>
+          <div style="flex:1;">
+            <div class="label">${esc(item.label)}</div>
+            ${state.done && state.note ? `<div class="item-note-display">${esc(state.note)}</div>` : ""}
+          </div>
+        </div>
+        ${state.done && itemPhotos.length ? `<div class="item-photo-row" style="margin-left:36px;">${itemPhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("")}</div>` : ""}
+        ${isActive ? `
+        <div class="item-detail">
+          <textarea data-note-for="${item.key}" placeholder="Notes for this step...">${esc(state.note)}</textarea>
+          <div class="item-photo-row">
+            ${itemPhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("")}
+            <label class="camera-btn" aria-label="Add photo">&#128247;<input type="file" accept="image/*" capture="environment" hidden data-photo-for="${item.key}"></label>
+          </div>
+          <button class="btn btn-primary btn-sm mt-8" data-done-for="${item.key}">Mark Done</button>
+        </div>` : ""}
+      </div>`;
+    }).join("");
+
+    if (isSubmitted) return;
+
+    wrap.querySelectorAll("[data-toggle]").forEach((row) => {
+      row.addEventListener("click", () => {
+        const key = row.dataset.toggle;
+        if (report.checklist[key] && report.checklist[key].done) return;
+        activeKey = key;
+        renderChecklistItems(false);
+      });
+    });
+
+    wrap.querySelectorAll("[data-photo-for]").forEach((input) => {
+      input.addEventListener("change", async () => {
+        const key = input.dataset.photoFor;
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+          const { storagePath, downloadURL } = await uploadJobPhoto(jobId, file);
+          await addPhotoDoc(jobId, { storagePath, itemKey: key, uploadedBy: user.uid, employeeId: user.uid });
+          photos = await loadPhotos();
+          // Insert the new thumbnail directly rather than re-rendering the
+          // whole card — a full re-render would wipe out whatever the
+          // technician has typed into this item's (unsaved) note textarea.
+          const thumb = document.createElement("div");
+          thumb.className = "photo-thumb";
+          thumb.innerHTML = `<img src="${downloadURL}">`;
+          input.closest(".item-photo-row").insertBefore(thumb, input.closest("label"));
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+
+    wrap.querySelectorAll("[data-done-for]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const key = btn.dataset.doneFor;
+        const noteEl = wrap.querySelector(`[data-note-for="${key}"]`);
+        const note = noteEl ? noteEl.value : "";
+        btn.disabled = true;
+        await updateChecklistItem(jobId, key, { done: true, note });
+        report.checklist[key] = { done: true, note };
+        activeKey = firstIncompleteItem(report.checklist);
+        // Rebuilds the progress bar/header too, not just the checklist itself.
+        renderProgressMode(false);
       });
     });
   }
 
-  renderPhotoGrid("before-grid", beforePhotos);
-  renderPhotoGrid("after-grid", afterPhotos);
-
-  function wireUpload(inputId, gridId, type, list) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    input.addEventListener("change", async () => {
-      const files = Array.from(input.files || []);
-      input.value = "";
-      for (const file of files) {
-        try {
-          const { storagePath, downloadURL, photoId: tempId } = await uploadJobPhoto(jobId, file);
-          const photoId = await addPhotoDoc(jobId, {
-            storagePath,
-            type,
-            uploadedBy: user.uid,
-            employeeId: user.uid,
-          });
-          list.push({ id: photoId, storagePath, type, url: downloadURL });
-          renderPhotoGrid(gridId, list);
-        } catch (err) {
-          console.error(err);
-          showError("Couldn't upload one of those photos. Please try again.");
-        }
-      }
-    });
-  }
-
-  wireUpload("before-input", "before-grid", "before", beforePhotos);
-  wireUpload("after-input", "after-grid", "after", afterPhotos);
-
-  function readForm() {
-    const checklist = {};
-    document.querySelectorAll("[data-key]").forEach((cb) => {
-      checklist[cb.dataset.key] = cb.checked;
-    });
-    const notes = document.getElementById("notes").value;
-    return { checklist, notes };
-  }
-
-  function showError(msg) {
-    const el = document.getElementById("error-msg");
-    el.textContent = msg;
-    el.classList.add("show");
-  }
-
-  document.getElementById("save-draft-btn")?.addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    try {
-      await saveReportDraft(jobId, readForm());
-      btn.textContent = "Saved!";
-      setTimeout(() => {
-        btn.textContent = "Save Draft";
-        btn.disabled = false;
-      }, 1200);
-    } catch (err) {
-      console.error(err);
-      showError("Couldn't save your draft. Please try again.");
-      btn.disabled = false;
-    }
-  });
-
-  document.getElementById("submit-btn")?.addEventListener("click", async (e) => {
-    if (!confirm("Submit this report? You won't be able to edit it afterward.")) return;
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="loading-spinner"></span> Submitting…';
-    try {
-      await submitReport(jobId, readForm());
-      location.reload();
-    } catch (err) {
-      console.error(err);
-      showError("Couldn't submit the report. Please try again.");
-      btn.disabled = false;
-      btn.textContent = "Submit Report";
-    }
-  });
+  render();
 </script>
 
 </body>

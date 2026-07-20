@@ -7,6 +7,14 @@
         { "fieldPath": "assignedTo", "order": "ASCENDING" },
         { "fieldPath": "scheduledStart", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assignedTo", "order": "ASCENDING" },
+        { "fieldPath": "scheduledStart", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

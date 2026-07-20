@@ -53,7 +53,7 @@
   // If already signed in, skip straight to the right home page.
   waitForAuth().then(({ user, profile }) => {
     if (user && profile && profile.active !== false) {
-      location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+      location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/home.html";
     }
   });
 
@@ -87,7 +87,7 @@
         submitBtn.textContent = "Sign In";
         return;
       }
-      location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+      location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/home.html";
     } catch (err) {
       errorMsg.textContent = friendlyError(err);
       errorMsg.classList.add("show");

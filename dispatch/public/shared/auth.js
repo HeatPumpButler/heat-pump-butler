@@ -65,7 +65,7 @@ export async function requireRole(requiredRole) {
   }
 
   if (profile.role !== requiredRole) {
-    location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+    location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/home.html";
     return null;
   }
 

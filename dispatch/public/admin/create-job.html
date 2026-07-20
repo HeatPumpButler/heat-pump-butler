@@ -63,9 +63,35 @@
           </div>
         </div>
         <div class="field">
-          <label for="notes">Notes</label>
-          <textarea id="notes" placeholder="Manufacturer, elevated units, anything the technician should know..."></textarea>
+          <label for="notes">Customer Notes</label>
+          <textarea id="notes" placeholder="Elevated units, access instructions, anything the technician should know..."></textarea>
         </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="manufacturer">Manufacturer</label>
+            <select id="manufacturer">
+              <option value="">Select manufacturer</option>
+              <option>Mitsubishi Electric</option>
+              <option>Daikin</option>
+              <option>Fujitsu</option>
+              <option>LG</option>
+              <option>Samsung</option>
+              <option>Gree</option>
+              <option>Carrier</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="model">Model</label>
+            <input id="model" placeholder="e.g. 4TTR4024L1000A">
+          </div>
+        </div>
+        <div class="field">
+          <label for="outdoorSerial">Outdoor Unit Serial</label>
+          <input id="outdoorSerial" placeholder="Optional">
+        </div>
+
         <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Create Job</button>
       </form>
     </div>
@@ -101,6 +127,11 @@
           unitCounts: {
             indoor: parseInt(document.getElementById("idus").value, 10) || 1,
             outdoor: parseInt(document.getElementById("odus").value, 10) || 1,
+          },
+          equipment: {
+            manufacturer: document.getElementById("manufacturer").value || null,
+            model: document.getElementById("model").value.trim() || null,
+            outdoorUnitSerial: document.getElementById("outdoorSerial").value.trim() || null,
           },
         },
         user.uid

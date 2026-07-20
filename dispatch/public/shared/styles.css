@@ -284,3 +284,138 @@ main.app-main { padding-bottom: 60px; min-height: calc(100vh - 64px); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .center-loading { text-align: center; padding: 60px 20px; color: var(--muted); }
+
+/* ==================== Mobile employee app (Home / Schedule / Job) ==================== */
+
+body.mobile-app { background: var(--ice); padding-bottom: 76px; }
+
+/* Navy mobile header */
+.mobile-header {
+  background: var(--navy);
+  color: white;
+  padding: 18px 20px 22px;
+  border-radius: 0 0 20px 20px;
+}
+.mobile-header .top-row { display: flex; align-items: center; justify-content: space-between; }
+.mobile-header .icon-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.12); color: white; font-size: 1.1rem;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  text-decoration: none;
+}
+.mobile-header h1 { font-size: 1.25rem; font-weight: 700; }
+.mobile-header .back-row { display: flex; align-items: center; gap: 12px; }
+
+/* Date strip */
+.date-strip { display: flex; gap: 8px; margin-top: 18px; }
+.date-chip {
+  flex: 1; text-align: center; padding: 8px 4px; border-radius: 12px;
+  background: rgba(255,255,255,0.08); cursor: pointer; border: 1px solid transparent;
+}
+.date-chip .dow { font-size: 0.68rem; text-transform: uppercase; opacity: 0.7; letter-spacing: 0.03em; }
+.date-chip .dom { font-size: 1.05rem; font-weight: 700; margin-top: 2px; }
+.date-chip.active { background: var(--green); }
+.date-chip.today:not(.active) { border-color: rgba(255,255,255,0.4); }
+
+/* Stat cards */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: -34px 20px 0; position: relative; z-index: 2; }
+@media (max-width: 480px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.stat-card {
+  background: white; border-radius: 14px; box-shadow: var(--shadow);
+  padding: 14px 10px; text-align: center;
+}
+.stat-card .num { font-size: 1.4rem; font-weight: 800; color: var(--navy); }
+.stat-card .label { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+.mobile-content { padding: 24px 20px 20px; max-width: 520px; margin: 0 auto; }
+.mobile-section-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.mobile-section-title h2 { font-size: 1rem; color: var(--navy); }
+.mobile-section-title a { font-size: 0.85rem; color: var(--green); font-weight: 600; }
+
+/* Next job card */
+.next-job-card {
+  background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px; display: flex; gap: 14px; margin-bottom: 24px;
+}
+.next-job-card .thumb {
+  width: 64px; height: 64px; border-radius: 12px; background: var(--green-light);
+  display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0;
+}
+.next-job-card h3 { font-size: 1.02rem; color: var(--navy); }
+.next-job-card .meta { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+.next-job-card .time { font-size: 0.85rem; color: var(--navy); font-weight: 600; margin-top: 8px; }
+.next-job-card .actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* Day overview list w/ status dots */
+.day-list { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.day-list-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  border-bottom: 1px solid rgba(18,32,58,0.06); cursor: pointer;
+}
+.day-list-item:last-child { border-bottom: none; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.unassigned { background: var(--warn); }
+.status-dot.assigned { background: #1b4fb0; }
+.status-dot.in_progress { background: var(--green); }
+.status-dot.completed { background: var(--muted); }
+.status-dot.cancelled { background: var(--danger); }
+.day-list-item .time-col { font-size: 0.82rem; color: var(--muted); width: 64px; flex-shrink: 0; }
+.day-list-item .name { font-size: 0.95rem; color: var(--navy); font-weight: 600; }
+.day-list-item .sub { font-size: 0.8rem; color: var(--muted); }
+
+/* Bottom tab bar */
+.bottom-tabs {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; background: white; border-top: 1px solid rgba(18,32,58,0.08);
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom)); z-index: 100;
+}
+.bottom-tabs a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 0.7rem; color: var(--muted); font-weight: 600; padding: 6px 0;
+}
+.bottom-tabs a .tab-icon { font-size: 1.25rem; }
+.bottom-tabs a.active { color: var(--green); }
+
+/* Equipment card */
+.equipment-card { background: var(--ice); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; }
+.equipment-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.equipment-row .k { font-size: 0.82rem; color: var(--muted); }
+.equipment-row .v { font-size: 0.9rem; color: var(--navy); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.copy-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 2px; }
+.copy-btn:hover { color: var(--green); }
+
+/* Progress bar */
+.progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.progress-header .frac { font-size: 0.9rem; font-weight: 700; color: var(--navy); }
+.progress-header .pct { font-size: 0.85rem; color: var(--muted); }
+.progress-track { height: 8px; background: rgba(18,32,58,0.08); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 999px; transition: width 0.3s ease; }
+
+/* Timer + pause/resume */
+.timer-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; }
+.timer-display { font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 800; color: var(--navy); background: white; border-radius: 10px; padding: 8px 16px; box-shadow: var(--shadow); }
+
+/* Checklist items — done / active / pending */
+.checklist-items { display: flex; flex-direction: column; gap: 10px; }
+.checklist-item-card {
+  background: white; border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  border: 2px solid transparent;
+}
+.checklist-item-card.pending { opacity: 0.6; }
+.checklist-item-card.active { border-color: var(--green); }
+.checklist-item-card .row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.checklist-item-card .check-circle {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(18,32,58,0.2);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 0.85rem;
+}
+.checklist-item-card.done .check-circle { background: var(--green); border-color: var(--green); }
+.checklist-item-card .row .label { font-weight: 700; color: var(--navy); font-size: 0.95rem; }
+.checklist-item-card .item-note-display { font-size: 0.85rem; color: var(--muted); margin: 6px 0 0 36px; }
+.checklist-item-card .item-detail { margin-top: 12px; padding-left: 36px; }
+.checklist-item-card .item-detail textarea { min-height: 70px; }
+.checklist-item-card .item-photo-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.checklist-item-card .item-photo-row .photo-thumb { width: 56px; height: 56px; }
+.checklist-item-card .camera-btn {
+  width: 40px; height: 40px; border-radius: 10px; border: 1px dashed rgba(18,32,58,0.25);
+  background: var(--ice); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem;
+}

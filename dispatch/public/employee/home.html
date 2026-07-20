@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body class="mobile-app">
+
+<header class="mobile-header">
+  <div class="top-row">
+    <button class="icon-btn" aria-label="Menu">&#9776;</button>
+    <h1 id="greeting">Good morning</h1>
+    <button class="icon-btn" aria-label="Notifications">&#128276;</button>
+  </div>
+  <div class="date-strip" id="date-strip"></div>
+</header>
+
+<div class="stat-grid" id="stat-grid">
+  <div class="stat-card"><div class="num">–</div><div class="label">Jobs today</div></div>
+  <div class="stat-card"><div class="num">–</div><div class="label">In progress</div></div>
+  <div class="stat-card"><div class="num">–</div><div class="label">Completed</div></div>
+  <div class="stat-card"><div class="num">–</div><div class="label">Hours</div></div>
+</div>
+
+<div class="mobile-content">
+  <div id="next-job-section"></div>
+
+  <div class="mobile-section-title">
+    <h2>Day overview</h2>
+    <a href="index.html">View all</a>
+  </div>
+  <div class="day-list" id="day-list">
+    <div class="center-loading">Loading…</div>
+  </div>
+</div>
+
+<nav class="bottom-tabs">
+  <a href="home.html" class="active"><span class="tab-icon">&#127968;</span>Home</a>
+  <a href="index.html"><span class="tab-icon">&#128197;</span>Schedule</a>
+</nav>
+
+<script type="module">
+  import { requireRole } from "../shared/auth.js";
+  import { listJobsForEmployeeOnDate, getReport } from "../shared/firestore.js";
+
+  const session = await requireRole("employee");
+  if (!session) throw new Error("redirecting");
+  const { user, profile } = session;
+
+  const firstName = (profile.displayName || profile.email || "").split(" ")[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  document.getElementById("greeting").textContent = `${greeting}, ${firstName}`;
+
+  let selectedDate = new Date();
+  selectedDate.setHours(0, 0, 0, 0);
+
+  function esc(s) {
+    const div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return "--";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  function renderDateStrip() {
+    const strip = document.getElementById("date-strip");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = [];
+    for (let offset = -2; offset <= 2; offset++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + offset);
+      days.push(d);
+    }
+    strip.innerHTML = days
+      .map((d) => {
+        const active = isSameDay(d, selectedDate);
+        const isToday = isSameDay(d, today);
+        return `<div class="date-chip ${active ? "active" : ""} ${isToday ? "today" : ""}" data-date="${d.getTime()}">
+          <div class="dow">${d.toLocaleDateString(undefined, { weekday: "short" })}</div>
+          <div class="dom">${d.getDate()}</div>
+        </div>`;
+      })
+      .join("");
+
+    strip.querySelectorAll(".date-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        selectedDate = new Date(parseInt(chip.dataset.date, 10));
+        renderDateStrip();
+        loadDay();
+      });
+    });
+  }
+
+  async function loadDay() {
+    const dayListEl = document.getElementById("day-list");
+    dayListEl.innerHTML = `<div class="center-loading">Loading…</div>`;
+
+    const jobs = await listJobsForEmployeeOnDate(user.uid, selectedDate);
+
+    const jobsToday = jobs.length;
+    const inProgress = jobs.filter((j) => j.status === "in_progress").length;
+    const completed = jobs.filter((j) => j.status === "completed").length;
+
+    let totalSeconds = 0;
+    const completedJobs = jobs.filter((j) => j.status === "completed" || j.status === "in_progress");
+    for (const job of completedJobs) {
+      try {
+        const report = await getReport(job.id);
+        if (report) totalSeconds += report.timerElapsedSeconds || 0;
+      } catch {
+        // ignore — report may not exist yet for a job that was just assigned
+      }
+    }
+    const hours = (totalSeconds / 3600).toFixed(1);
+
+    const cards = document.querySelectorAll("#stat-grid .stat-card .num");
+    cards[0].textContent = jobsToday;
+    cards[1].textContent = inProgress;
+    cards[2].textContent = completed;
+    cards[3].textContent = hours;
+
+    const nextJob = jobs.find((j) => j.status === "assigned" || j.status === "in_progress");
+    const nextJobSection = document.getElementById("next-job-section");
+    if (nextJob) {
+      nextJobSection.innerHTML = `
+        <div class="mobile-section-title"><h2>Next job</h2></div>
+        <div class="next-job-card">
+          <div class="thumb">&#10052;&#65039;</div>
+          <div style="flex:1;">
+            <h3>${esc(nextJob.customerName)}</h3>
+            <div class="meta">${esc(nextJob.address)}</div>
+            <div class="time">${fmtTime(nextJob.scheduledStart)}</div>
+            <div class="actions">
+              <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nextJob.address)}">Directions</a>
+              <a class="btn btn-primary btn-sm" href="job.html?id=${nextJob.id}">Open</a>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      nextJobSection.innerHTML = "";
+    }
+
+    if (jobs.length === 0) {
+      dayListEl.innerHTML = `<div class="empty-state">No jobs scheduled this day.</div>`;
+      return;
+    }
+
+    dayListEl.innerHTML = jobs
+      .map(
+        (j) => `
+      <div class="day-list-item" onclick="location.href='job.html?id=${j.id}'">
+        <span class="status-dot ${j.status}"></span>
+        <div class="time-col">${fmtTime(j.scheduledStart)}</div>
+        <div style="flex:1;">
+          <div class="name">${esc(j.customerName)}</div>
+          <div class="sub">${esc(j.address)}</div>
+        </div>
+      </div>`
+      )
+      .join("");
+  }
+
+  renderDateStrip();
+  loadDay();
+</script>
+
+</body>
+</html>

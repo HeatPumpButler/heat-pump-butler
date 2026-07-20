@@ -51,28 +51,46 @@
   }
 
   const report = await getReport(jobId);
-  let photosHtml = "";
+  let checklistHtml = "";
   if (report) {
     const photos = await listPhotos(jobId);
     const withUrls = await Promise.all(photos.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) })));
-    const before = withUrls.filter((p) => p.type === "before");
-    const after = withUrls.filter((p) => p.type === "after");
-    photosHtml = `
-      <div class="photo-section">
-        <h4>Before Photos</h4>
-        <div class="photo-grid">${before.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("") || '<p class="text-muted">None</p>'}</div>
-      </div>
-      <div class="photo-section">
-        <h4>After Photos</h4>
-        <div class="photo-grid">${after.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("") || '<p class="text-muted">None</p>'}</div>
-      </div>
-    `;
+
+    checklistHtml = CHECKLIST_ITEMS.map((item) => {
+      const state = (report.checklist && report.checklist[item.key]) || { done: false, note: "" };
+      const itemPhotos = withUrls.filter((p) => p.itemKey === item.key);
+      return `
+        <div class="checkbox-row" style="cursor:default; flex-direction:column; align-items:stretch;">
+          <div class="flex" style="align-items:center; gap:10px;">
+            <input type="checkbox" disabled ${state.done ? "checked" : ""}>
+            <span>${esc(item.label)}</span>
+          </div>
+          ${state.note ? `<p class="text-muted mt-8" style="margin-left:30px;">${esc(state.note)}</p>` : ""}
+          ${itemPhotos.length ? `<div class="photo-grid" style="margin-left:30px; margin-top:8px;">${itemPhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("")}</div>` : ""}
+        </div>`;
+    }).join("");
+
+    const generalPhotos = withUrls.filter((p) => !p.itemKey);
+    if (generalPhotos.length) {
+      checklistHtml += `
+        <div class="photo-section mt-16">
+          <h4>Other Photos</h4>
+          <div class="photo-grid">${generalPhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("")}</div>
+        </div>`;
+    }
   }
 
   function fmtDate(ts) {
     if (!ts) return "No date set";
     const d = ts.toDate ? ts.toDate() : new Date(ts);
     return d.toLocaleString(undefined, { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function fmtElapsed(totalSeconds) {
+    const s = Math.max(0, Math.round(totalSeconds || 0));
+    const hh = Math.floor(s / 3600);
+    const mm = Math.floor((s % 3600) / 60);
+    return `${hh}h ${mm}m`;
   }
 
   function esc(s) {
@@ -101,6 +119,16 @@
       </div>
       ${job.notes ? `<div class="mt-16"><label>Notes</label><p>${esc(job.notes)}</p></div>` : ""}
 
+      ${job.equipment && (job.equipment.manufacturer || job.equipment.model || job.equipment.outdoorUnitSerial) ? `
+      <div class="mt-16">
+        <label>Equipment</label>
+        <div class="equipment-card mt-8">
+          ${job.equipment.manufacturer ? `<div class="equipment-row"><span class="k">Manufacturer</span><span class="v">${esc(job.equipment.manufacturer)}</span></div>` : ""}
+          ${job.equipment.model ? `<div class="equipment-row"><span class="k">Model</span><span class="v">${esc(job.equipment.model)}</span></div>` : ""}
+          ${job.equipment.outdoorUnitSerial ? `<div class="equipment-row"><span class="k">Outdoor Serial</span><span class="v">${esc(job.equipment.outdoorUnitSerial)}</span></div>` : ""}
+        </div>
+      </div>` : ""}
+
       ${
         job.status !== "cancelled"
           ? `<div class="field mt-24">
@@ -123,18 +151,14 @@
         !report
           ? `<p class="text-muted">No report started yet.</p>`
           : `
-            <p class="mt-8"><span class="badge badge-${report.status === "submitted" ? "completed" : "assigned"}">${report.status}</span></p>
-            <div class="checklist-box mt-16">
-              ${CHECKLIST_ITEMS.map(
-                (item) => `
-                <div class="checkbox-row" style="cursor:default;">
-                  <input type="checkbox" disabled ${report.checklist && report.checklist[item.key] ? "checked" : ""}>
-                  <span>${item.label}</span>
-                </div>`
-              ).join("")}
+            <div class="flex-gap" style="align-items:center;">
+              <span class="badge badge-${report.status === "submitted" ? "completed" : "assigned"}">${report.status}</span>
+              ${report.timerElapsedSeconds ? `<span class="text-muted" style="font-size:0.9rem;">Time on job: ${fmtElapsed(report.timerElapsedSeconds)}</span>` : ""}
             </div>
-            ${report.notes ? `<div class="mt-16"><label>Technician Notes</label><p>${esc(report.notes)}</p></div>` : ""}
-            ${photosHtml}
+            <div class="checklist-box mt-16">
+              ${checklistHtml}
+            </div>
+            ${report.notes ? `<div class="mt-16"><label>Overall Notes</label><p>${esc(report.notes)}</p></div>` : ""}
           `
       }
     </div>

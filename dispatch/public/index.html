@@ -13,7 +13,7 @@
   import { waitForAuth } from "./shared/auth.js";
   const { user, profile } = await waitForAuth();
   if (user && profile && profile.active !== false) {
-    location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+    location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/home.html";
   } else {
     location.href = "/login.html";
   }

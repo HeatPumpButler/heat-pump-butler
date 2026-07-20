@@ -1,6 +1,8 @@
 # Heat Pump Butler — Dispatch (Phase 1)
 
-Internal web app for employees: individual logins, an admin/dispatcher view to manually create and assign jobs, and an employee view to see assigned jobs and submit a service report (checklist + notes + before/after photos) per job.
+Internal web app for employees: individual logins, an admin/dispatcher view to manually create and assign jobs, and a mobile-first employee experience (home dashboard, schedule, and a per-job checklist with a live timer) for completing service reports with per-item notes and photos.
+
+Employee side is modeled on a reference mobile mockup: a Home dashboard (greeting, date strip, daily stats, next job, day overview), a Job details screen (customer info, equipment info, checklist preview, Start Job), and a Job-in-progress screen (progress bar, pause/resume timer, one checklist item expanded at a time with its own note + photo).
 
 Built as plain HTML/JS (ES modules), pulling the Firebase SDK straight from Google's CDN — no `npm`/build step for the app itself, matching the zero-build approach of the main marketing site. Backend is Firebase: Auth (email/password), Firestore, and Storage — all on the free Spark plan, no Cloud Functions and no billing required for Phase 1.
 
@@ -14,8 +16,9 @@ dispatch/
 │   ├── index.html           ← routes to /login.html or the right home page based on auth state
 │   ├── login.html           ← shared login for both roles
 │   ├── employee/
-│   │   ├── index.html       ← "My Jobs" list
-│   │   └── job.html         ← job detail + checklist + notes + photo upload
+│   │   ├── home.html        ← dashboard: greeting, date strip, stats, next job, day overview
+│   │   ├── index.html       ← "Schedule" — full job list (Upcoming/Completed/All)
+│   │   └── job.html         ← job details mode + job-in-progress mode (timer, per-item checklist/notes/photos)
 │   ├── admin/
 │   │   ├── index.html       ← job dashboard (filter/assign)
 │   │   ├── create-job.html  ← manual job entry (stand-in for Cal.com auto-import, Phase 2)
@@ -68,4 +71,4 @@ To persist emulator data between restarts instead of reseeding every time: `fire
 ## Not built yet (by design)
 
 - **Cal.com auto-import** (Phase 2) — a Cloud Function receiving Cal.com's booking webhooks, requires upgrading to the Blaze plan (needs a card on file). Until then, jobs are entered manually in Admin → New Job.
-- **Time-clock integration** (Phase 3) — schema is intentionally left open for a future `timeClockEntries` collection, but nothing about it is built now.
+- **Time-clock integration** (Phase 3) — the per-job timer (pause/resume, stored on the report as `timerState`/`timerElapsedSeconds`) tracks time spent *on that job*, which is different from a full employee time-clock/payroll ledger. Schema is intentionally left open for a future `timeClockEntries` collection, but nothing about a real time-clock integration is built now.
