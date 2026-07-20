@@ -4,7 +4,7 @@ A one-page marketing site for Heat Pump Butler — professional residential heat
 
 ## Live site
 
-https://heatpumpbutler.github.io/heat-pump-butler/
+https://heatpumpbutlers.com (custom domain, via GitHub Pages — also reachable at https://heatpumpbutler.github.io/heat-pump-butler/)
 
 ## Structure
 
@@ -26,9 +26,7 @@ The calculator also collects two extra details that don't come from the site's o
 - **Manufacturer** — a dropdown (Mitsubishi Electric, Daikin, Fujitsu, LG, Samsung, Gree, Carrier, Other).
 - **Units 10+ feet off the ground** — a checkbox.
 
-Both are informational only — neither affects price or duration.
-
-Both are passed along as free text in the booking's prefilled "notes" field when someone clicks "Get This Quote & Book" (see below) — the technician sees them on the Cal.com booking itself, no separate form submission needed.
+Both are informational only — neither affects price or duration. They're passed along as free text in the booking's prefilled "notes" field when someone clicks "Get This Quote & Book" (see below) — the technician sees them on the Cal.com booking itself, no separate form submission needed.
 
 ## Booking widget (Cal.com)
 
@@ -50,6 +48,15 @@ The contact form at the bottom is currently a demo placeholder — submitting it
 
 - **Formspree** (free tier): point the `<form>`'s `action` at a Formspree endpoint and remove the `onsubmit` demo handler — submissions get emailed to you with no backend to run.
 - **mailto:** link — zero setup, but depends on the visitor having a configured email client.
+
+## Custom domain
+
+`heatpumpbutlers.com` is configured as the GitHub Pages custom domain via the `CNAME` file at the repo root. DNS at the registrar needs:
+
+- 4 `A` records for the apex domain, pointing to: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
+- 1 `CNAME` record: `www` → `heatpumpbutler.github.io`
+
+"Enforce HTTPS" in the repo's Pages settings should be turned on once DNS has propagated and GitHub issues the certificate (can take a few hours after the DNS records go live).
 
 ## Editing
 
