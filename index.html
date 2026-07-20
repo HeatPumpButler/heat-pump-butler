@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heat Pump Butler | Residential Heat Pump Cleaning</title>
+<meta name="description" content="Professional residential heat pump cleaning and maintenance. Keep your system running efficiently, quietly, and cleanly all year round.">
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --navy: #0f2a3d;
+    --teal: #1a8f8f;
+    --teal-light: #e6f5f5;
+    --ice: #f4f9fb;
+    --text: #223338;
+    --muted: #5c6b70;
+    --white: #ffffff;
+    --radius: 14px;
+    --shadow: 0 10px 30px rgba(15, 42, 61, 0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--white);
+    line-height: 1.6;
+  }
+
+  a { text-decoration: none; color: inherit; }
+  img { max-width: 100%; display: block; }
+  ul { list-style: none; }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(15, 42, 61, 0.06);
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--navy);
+  }
+
+  .logo-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--teal), var(--navy));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    font-weight: 500;
+    font-size: 0.95rem;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--teal); }
+
+  .btn {
+    display: inline-block;
+    padding: 12px 26px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .btn-primary {
+    background: var(--teal);
+    color: white;
+    box-shadow: 0 8px 20px rgba(26, 143, 143, 0.3);
+  }
+
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(26, 143, 143, 0.38); }
+
+  .nav-cta { display: none; }
+
+  .menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--navy);
+    cursor: pointer;
+  }
+
+  /* Hero */
+  .hero {
+    background: radial-gradient(circle at 80% 20%, var(--teal-light), var(--ice) 60%);
+    padding: 90px 0 80px;
+  }
+
+  .hero-inner {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 48px;
+    align-items: center;
+  }
+
+  .eyebrow {
+    display: inline-block;
+    background: var(--teal-light);
+    color: var(--teal);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 4.5vw, 3.1rem);
+    line-height: 1.1;
+    color: var(--navy);
+    margin-bottom: 20px;
+    letter-spacing: -0.02em;
+  }
+
+  .hero p.lead {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 46ch;
+    margin-bottom: 32px;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .btn-secondary {
+    background: white;
+    color: var(--navy);
+    border: 1px solid rgba(15, 42, 61, 0.15);
+  }
+
+  .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+
+  .hero-visual {
+    background: linear-gradient(160deg, var(--navy), #143a52);
+    border-radius: 24px;
+    aspect-ratio: 4 / 3.4;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hero-visual .unit {
+    width: 78%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 16px;
+    padding: 28px 24px;
+    color: white;
+    backdrop-filter: blur(6px);
+  }
+
+  .hero-visual .unit .fan {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 3px solid var(--teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    animation: spin 6s linear infinite;
+  }
+
+  @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+  .hero-visual .unit .fan::before {
+    content: "✻";
+    color: var(--teal);
+    font-size: 1.6rem;
+  }
+
+  .hero-visual .unit .bars { display: flex; gap: 6px; margin-top: 18px; }
+  .hero-visual .unit .bars span {
+    height: 6px;
+    flex: 1;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .hero-visual .unit .bars span::after {
+    content: "";
+    display: block;
+    height: 100%;
+    background: var(--teal);
+    width: 82%;
+  }
+
+  section { padding: 88px 0; }
+  .section-head {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto 56px;
+  }
+  .section-head .eyebrow { margin-bottom: 14px; }
+  h2 {
+    font-size: clamp(1.6rem, 3.2vw, 2.3rem);
+    color: var(--navy);
+    letter-spacing: -0.01em;
+    margin-bottom: 14px;
+  }
+  .section-head p { color: var(--muted); font-size: 1.05rem; }
+
+  /* Services */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+
+  .card {
+    background: var(--white);
+    border: 1px solid rgba(15, 42, 61, 0.08);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+
+  .card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--teal-light);
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+  }
+
+  .card h3 { font-size: 1.15rem; color: var(--navy); margin-bottom: 10px; }
+  .card p { color: var(--muted); font-size: 0.97rem; }
+
+  /* Why / Benefits */
+  .why {
+    background: var(--ice);
+  }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+
+  .stat {
+    text-align: center;
+    background: white;
+    border-radius: var(--radius);
+    padding: 28px 16px;
+    border: 1px solid rgba(15, 42, 61, 0.06);
+  }
+
+  .stat .num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--teal);
+    margin-bottom: 6px;
+  }
+
+  .stat .label { color: var(--muted); font-size: 0.9rem; }
+
+  /* Process */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+    counter-reset: step;
+  }
+
+  .step {
+    position: relative;
+    padding-top: 8px;
+  }
+
+  .step .step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
+
+  .step h3 { font-size: 1.05rem; color: var(--navy); margin-bottom: 8px; }
+  .step p { color: var(--muted); font-size: 0.94rem; }
+
+  /* CTA band */
+  .cta-band {
+    background: linear-gradient(135deg, var(--navy), #163f5a);
+    border-radius: 24px;
+    padding: 56px 48px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .cta-band h2 { color: white; margin-bottom: 8px; }
+  .cta-band p { color: rgba(255,255,255,0.75); }
+
+  /* Contact */
+  .contact-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .contact-info .item {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .contact-info .icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--teal-light);
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .contact-info h4 { color: var(--navy); font-size: 0.95rem; margin-bottom: 4px; }
+  .contact-info p { color: var(--muted); font-size: 0.95rem; }
+
+  form {
+    background: var(--ice);
+    border-radius: var(--radius);
+    padding: 32px;
+    display: grid;
+    gap: 16px;
+  }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  label { font-size: 0.85rem; font-weight: 600; color: var(--navy); display: block; margin-bottom: 6px; }
+
+  input, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 42, 61, 0.15);
+    font-family: inherit;
+    font-size: 0.95rem;
+    background: white;
+  }
+
+  input:focus, textarea:focus { outline: 2px solid var(--teal); border-color: transparent; }
+
+  textarea { resize: vertical; min-height: 110px; }
+
+  form .btn { border: none; cursor: pointer; width: 100%; text-align: center; }
+
+  footer {
+    border-top: 1px solid rgba(15, 42, 61, 0.08);
+    padding: 32px 0;
+  }
+
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .footer-links { display: flex; gap: 20px; }
+
+  /* Mobile */
+  @media (max-width: 860px) {
+    .hero-inner { grid-template-columns: 1fr; }
+    .hero-visual { order: -1; max-width: 340px; margin: 0 auto; }
+    .services-grid { grid-template-columns: 1fr 1fr; }
+    .why-grid { grid-template-columns: 1fr 1fr; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .contact-wrap { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 620px) {
+    .nav-links { display: none; }
+    .menu-toggle { display: block; }
+    .nav-cta.desktop { display: none; }
+    .services-grid { grid-template-columns: 1fr; }
+    .why-grid { grid-template-columns: 1fr 1fr; }
+    .steps { grid-template-columns: 1fr; }
+    .cta-band { flex-direction: column; text-align: center; padding: 40px 28px; }
+    section { padding: 60px 0; }
+    .hero { padding: 56px 0 48px; }
+
+    .mobile-menu {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 24px 20px;
+      background: white;
+      border-top: 1px solid rgba(15,42,61,0.06);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a {
+      padding: 12px 4px;
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 1px solid rgba(15,42,61,0.05);
+    }
+  }
+
+  @media (min-width: 621px) {
+    .mobile-menu { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="nav">
+    <a href="#top" class="logo">
+      <span class="logo-mark">♨</span>
+      Heat Pump Butler
+    </a>
+    <div class="nav-links">
+      <a href="#services">Services</a>
+      <a href="#why">Why Us</a>
+      <a href="#process">Process</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <a href="#contact" class="btn btn-primary nav-cta desktop" style="display:inline-block;">Get a Free Quote</a>
+    <button class="menu-toggle" aria-label="Toggle menu" onclick="document.querySelector('.mobile-menu').classList.toggle('open')">☰</button>
+  </nav>
+  <div class="mobile-menu">
+    <a href="#services">Services</a>
+    <a href="#why">Why Us</a>
+    <a href="#process">Process</a>
+    <a href="#contact">Contact</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="container hero-inner">
+      <div>
+        <span class="eyebrow">Residential Heat Pump Cleaning</span>
+        <h1>Breathe easier with a spotless, efficient heat pump.</h1>
+        <p class="lead">We deep clean indoor and outdoor units so your system runs quieter, uses less energy, and keeps your air healthier — all year round.</p>
+        <div class="hero-actions">
+          <a href="#contact" class="btn btn-primary">Get a Free Quote</a>
+          <a href="#services" class="btn btn-secondary">See Our Services</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="unit">
+          <div class="fan"></div>
+          <strong>System Efficiency</strong>
+          <div class="bars">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">What We Do</span>
+        <h2>Complete heat pump cleaning services</h2>
+        <p>From indoor coils to outdoor condensers, we cover every part of your system.</p>
+      </div>
+      <div class="services-grid">
+        <div class="card">
+          <div class="card-icon">❄</div>
+          <h3>Indoor Unit Cleaning</h3>
+          <p>Deep cleaning of filters, coils, and blower fans to remove dust, mold, and buildup that restrict airflow.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🌀</div>
+          <h3>Outdoor Unit Cleaning</h3>
+          <p>Careful removal of debris, leaves, and grime from the outdoor condenser so it can breathe and run efficiently.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔧</div>
+          <h3>Performance Check</h3>
+          <p>A quick inspection of airflow, drainage, and general condition, with plain-language notes on what we found.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">💧</div>
+          <h3>Drain Line Flush</h3>
+          <p>Clearing condensate lines to prevent clogs, leaks, and water damage around your indoor unit.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🧴</div>
+          <h3>Sanitizing Treatment</h3>
+          <p>Safe, effective treatment that helps reduce odors, mold, and allergens circulating through your home.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📅</div>
+          <h3>Maintenance Plans</h3>
+          <p>Seasonal cleaning plans so your system stays in top shape without you having to remember to book it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why" class="why">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Why Heat Pump Butler</span>
+        <h2>Cleaner systems, lower bills, better air</h2>
+        <p>A neglected heat pump works harder for less comfort. Regular cleaning fixes that.</p>
+      </div>
+      <div class="why-grid">
+        <div class="stat">
+          <div class="num">↓ 25%</div>
+          <div class="label">Typical energy waste from a dirty system</div>
+        </div>
+        <div class="stat">
+          <div class="num">2x</div>
+          <div class="label">Longer equipment lifespan with regular care</div>
+        </div>
+        <div class="stat">
+          <div class="num">100%</div>
+          <div class="label">Satisfaction focus on every visit</div>
+        </div>
+        <div class="stat">
+          <div class="num">&lt; 1 hr</div>
+          <div class="label">Average time for a standard cleaning</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="process">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">How It Works</span>
+        <h2>Simple, straightforward service</h2>
+        <p>No pressure, no upselling — just a clean, well-running system.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Book a Visit</h3>
+          <p>Reach out through the form below and we'll find a time that works for you.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>We Inspect</h3>
+          <p>We check both indoor and outdoor units to see what your system needs.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>We Clean</h3>
+          <p>Filters, coils, fans, and drain lines are cleaned thoroughly and carefully.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>You Relax</h3>
+          <p>Enjoy quieter, more efficient heating and cooling with cleaner air.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <div class="cta-band">
+        <div>
+          <h2>Ready for a cleaner, quieter system?</h2>
+          <p>Get a free, no-obligation quote for your home.</p>
+        </div>
+        <a href="#contact" class="btn btn-primary">Request a Quote</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Get In Touch</span>
+        <h2>Request your free quote</h2>
+        <p>Tell us a bit about your system and we'll get back to you shortly.</p>
+      </div>
+      <div class="contact-wrap">
+        <div class="contact-info">
+          <div class="item">
+            <div class="icon">📍</div>
+            <div>
+              <h4>Service Area</h4>
+              <p>Serving homes across the local area — add your service region here.</p>
+            </div>
+          </div>
+          <div class="item">
+            <div class="icon">✉</div>
+            <div>
+              <h4>Email</h4>
+              <p>add-your-email@example.com</p>
+            </div>
+          </div>
+          <div class="item">
+            <div class="icon">📞</div>
+            <div>
+              <h4>Phone</h4>
+              <p>(000) 000-0000</p>
+            </div>
+          </div>
+          <div class="item">
+            <div class="icon">🕒</div>
+            <div>
+              <h4>Hours</h4>
+              <p>Mon–Sat, 8am–6pm</p>
+            </div>
+          </div>
+        </div>
+        <form onsubmit="event.preventDefault(); alert('Thanks! This demo form doesn\'t send yet — connect it to an email service or form backend.');">
+          <div class="form-row">
+            <div>
+              <label for="name">Name</label>
+              <input id="name" name="name" type="text" required placeholder="Your name">
+            </div>
+            <div>
+              <label for="phone">Phone</label>
+              <input id="phone" name="phone" type="tel" placeholder="(000) 000-0000">
+            </div>
+          </div>
+          <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required placeholder="you@example.com">
+          </div>
+          <div>
+            <label for="message">Tell us about your system</label>
+            <textarea id="message" name="message" placeholder="Type of unit, number of units, last cleaned, etc."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Request a Free Quote</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container footer-inner">
+    <span>© <span id="year"></span> Heat Pump Butler. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="#services">Services</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
