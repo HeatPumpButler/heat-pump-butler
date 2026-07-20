@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="logo-row">
+      <img src="../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+    </div>
+    <h1>Dispatch Sign In</h1>
+    <p class="sub">For Heat Pump Butler employees</p>
+
+    <div class="error-msg" id="error-msg"></div>
+    <div class="success-msg" id="success-msg"></div>
+
+    <form id="login-form">
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Sign In</button>
+    </form>
+
+    <div class="forgot-link">
+      <a href="#" id="forgot-link">Forgot password?</a>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { login, resetPassword, waitForAuth } from "./shared/auth.js";
+
+  const params = new URLSearchParams(location.search);
+  const errorMsg = document.getElementById("error-msg");
+  const successMsg = document.getElementById("success-msg");
+
+  if (params.get("deactivated")) {
+    errorMsg.textContent = "That account has been deactivated. Contact your manager.";
+    errorMsg.classList.add("show");
+  }
+
+  // If already signed in, skip straight to the right home page.
+  waitForAuth().then(({ user, profile }) => {
+    if (user && profile && profile.active !== false) {
+      location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+    }
+  });
+
+  const form = document.getElementById("login-form");
+  const submitBtn = document.getElementById("submit-btn");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorMsg.classList.remove("show");
+    successMsg.classList.remove("show");
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading-spinner"></span> Signing in…';
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      await login(email, password);
+      const { profile } = await waitForAuth();
+      if (!profile) {
+        errorMsg.textContent = "This account has no dispatch profile set up yet. Contact your manager.";
+        errorMsg.classList.add("show");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign In";
+        return;
+      }
+      if (profile.active === false) {
+        errorMsg.textContent = "That account has been deactivated. Contact your manager.";
+        errorMsg.classList.add("show");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign In";
+        return;
+      }
+      location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+    } catch (err) {
+      errorMsg.textContent = friendlyError(err);
+      errorMsg.classList.add("show");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Sign In";
+    }
+  });
+
+  document.getElementById("forgot-link").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    if (!email) {
+      errorMsg.textContent = "Type your email above first, then click \"Forgot password?\"";
+      errorMsg.classList.add("show");
+      return;
+    }
+    try {
+      await resetPassword(email);
+      errorMsg.classList.remove("show");
+      successMsg.textContent = "Password reset email sent — check your inbox.";
+      successMsg.classList.add("show");
+    } catch (err) {
+      errorMsg.textContent = friendlyError(err);
+      errorMsg.classList.add("show");
+    }
+  });
+
+  function friendlyError(err) {
+    const code = err && err.code;
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      return "Incorrect email or password.";
+    }
+    if (code === "auth/too-many-requests") {
+      return "Too many attempts — please wait a bit and try again.";
+    }
+    if (code === "auth/invalid-email") {
+      return "That doesn't look like a valid email address.";
+    }
+    return "Something went wrong. Please try again.";
+  }
+</script>
+
+</body>
+</html>

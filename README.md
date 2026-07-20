@@ -63,3 +63,7 @@ DNS at the registrar (Squarespace) has:
 ## Editing
 
 Open `index.html` in any editor and update the placeholder phone/email (currently `(000) 000-0000` / `add-your-email@example.com`), then push to `main` — GitHub Pages redeploys automatically within a minute or two.
+
+## Employee dispatch app
+
+`dispatch/` is a separate internal web app (individual employee logins, job assignment, service reports with photo uploads) — see [dispatch/README.md](dispatch/README.md) for setup and local development. It's built on Firebase and deploys independently via `firebase deploy`, without touching this site's GitHub Pages flow at all.

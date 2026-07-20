@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employees | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <nav class="app-nav">
+    <a href="index.html" class="app-logo">
+      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+      Dispatch Admin
+    </a>
+    <div class="app-nav-links">
+      <a href="index.html">Jobs</a>
+      <a href="employees.html" class="active">Employees</a>
+    </div>
+    <div class="flex-gap" style="align-items:center;">
+      <span class="user-chip" id="user-chip"></span>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+    </div>
+  </nav>
+</header>
+
+<main class="app-main">
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1>Employees</h1>
+        <p>Manage who can sign in to Dispatch</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:1.05rem;color:var(--navy);margin-bottom:16px;">Add Employee</h2>
+      <div class="error-msg" id="error-msg"></div>
+      <div class="success-msg" id="success-msg"></div>
+      <form id="add-form">
+        <div class="field-row">
+          <div class="field">
+            <label for="displayName">Name</label>
+            <input id="displayName" required>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="password">Temporary Password</label>
+          <input id="password" type="text" required minlength="6" placeholder="At least 6 characters">
+        </div>
+        <button type="submit" class="btn btn-primary" id="submit-btn">Add Employee</button>
+      </form>
+    </div>
+
+    <div class="card mt-16" id="employees-card">
+      <div class="center-loading">Loading employees…</div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { requireRole, logout, createEmployeeAccount } from "../shared/auth.js";
+  import { listEmployees, setUserActive } from "../shared/firestore.js";
+
+  const session = await requireRole("admin");
+  if (!session) throw new Error("redirecting");
+  const { user, profile } = session;
+
+  document.getElementById("user-chip").textContent = profile.displayName || profile.email;
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await logout();
+    location.href = "/login.html";
+  });
+
+  function esc(s) {
+    const div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
+  async function renderEmployees() {
+    const card = document.getElementById("employees-card");
+    const employees = await listEmployees();
+    if (employees.length === 0) {
+      card.innerHTML = `<div class="empty-state">No employees added yet.</div>`;
+      return;
+    }
+    card.innerHTML = employees
+      .map(
+        (e) => `
+      <div class="job-item">
+        <div>
+          <h3>${esc(e.displayName)}</h3>
+          <div class="meta">${esc(e.email)}</div>
+        </div>
+        <div class="right">
+          <span class="badge ${e.active ? "badge-assigned" : "badge-cancelled"}">${e.active ? "active" : "deactivated"}</span>
+          <button class="btn btn-sm ${e.active ? "btn-danger" : "btn-secondary"}" data-uid="${e.uid}" data-active="${e.active}">
+            ${e.active ? "Deactivate" : "Reactivate"}
+          </button>
+        </div>
+      </div>`
+      )
+      .join("");
+
+    card.querySelectorAll("button[data-uid]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const uid = btn.dataset.uid;
+        const currentlyActive = btn.dataset.active === "true";
+        try {
+          await setUserActive(uid, !currentlyActive);
+          await renderEmployees();
+        } catch (err) {
+          console.error(err);
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  await renderEmployees();
+
+  document.getElementById("add-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorMsg = document.getElementById("error-msg");
+    const successMsg = document.getElementById("success-msg");
+    errorMsg.classList.remove("show");
+    successMsg.classList.remove("show");
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Adding…';
+
+    try {
+      await createEmployeeAccount({
+        displayName: document.getElementById("displayName").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+        adminUid: user.uid,
+      });
+      document.getElementById("add-form").reset();
+      successMsg.textContent = "Employee added — share their email + password with them directly.";
+      successMsg.classList.add("show");
+      await renderEmployees();
+    } catch (err) {
+      console.error(err);
+      errorMsg.textContent = friendlyError(err);
+      errorMsg.classList.add("show");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Add Employee";
+    }
+  });
+
+  function friendlyError(err) {
+    const code = err && err.code;
+    if (code === "auth/email-already-in-use") return "That email is already registered.";
+    if (code === "auth/weak-password") return "Password must be at least 6 characters.";
+    if (code === "auth/invalid-email") return "That doesn't look like a valid email address.";
+    return "Something went wrong. Please try again.";
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Detail | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <nav class="app-nav">
+    <a href="index.html" class="app-logo">
+      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+      Dispatch Admin
+    </a>
+    <a href="index.html" class="btn btn-secondary btn-sm">&larr; Jobs</a>
+  </nav>
+</header>
+
+<main class="app-main">
+  <div class="container" id="content">
+    <div class="center-loading">Loading job…</div>
+  </div>
+</main>
+
+<script type="module">
+  import { requireRole } from "../shared/auth.js";
+  import { getJob, listEmployees, assignJob, unassignJob, cancelJob, getReport, listPhotos } from "../shared/firestore.js";
+  import { getPhotoUrl } from "../shared/storage.js";
+  import { CHECKLIST_ITEMS } from "../shared/checklist.js";
+
+  const session = await requireRole("admin");
+  if (!session) throw new Error("redirecting");
+  const { user } = session;
+
+  const jobId = new URLSearchParams(location.search).get("id");
+  const content = document.getElementById("content");
+
+  if (!jobId) {
+    content.innerHTML = `<div class="empty-state">No job specified.</div>`;
+    throw new Error("no job id");
+  }
+
+  const [job, employees] = await Promise.all([getJob(jobId), listEmployees({ activeOnly: true })]);
+
+  if (!job) {
+    content.innerHTML = `<div class="empty-state">Job not found.</div>`;
+    throw new Error("job not found");
+  }
+
+  const report = await getReport(jobId);
+  let photosHtml = "";
+  if (report) {
+    const photos = await listPhotos(jobId);
+    const withUrls = await Promise.all(photos.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) })));
+    const before = withUrls.filter((p) => p.type === "before");
+    const after = withUrls.filter((p) => p.type === "after");
+    photosHtml = `
+      <div class="photo-section">
+        <h4>Before Photos</h4>
+        <div class="photo-grid">${before.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("") || '<p class="text-muted">None</p>'}</div>
+      </div>
+      <div class="photo-section">
+        <h4>After Photos</h4>
+        <div class="photo-grid">${after.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("") || '<p class="text-muted">None</p>'}</div>
+      </div>
+    `;
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return "No date set";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleString(undefined, { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function esc(s) {
+    const div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
+  content.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h1>${esc(job.customerName)}</h1>
+        <p>${esc(job.address)} &middot; ${fmtDate(job.scheduledStart)}</p>
+      </div>
+      <span class="badge badge-${job.status}">${job.status.replace("_", " ")}</span>
+    </div>
+
+    <div class="card">
+      <div class="field-row">
+        <div><label>Phone</label><p>${esc(job.customerPhone) || "—"}</p></div>
+        <div><label>Email</label><p>${esc(job.customerEmail) || "—"}</p></div>
+      </div>
+      <div class="field-row mt-16">
+        <div><label>Units</label><p>${job.unitCounts ? `${job.unitCounts.indoor} indoor / ${job.unitCounts.outdoor} outdoor` : "—"}</p></div>
+        <div><label>Source</label><p>${job.source === "cal_com" ? "Cal.com booking" : "Manually created"}</p></div>
+      </div>
+      ${job.notes ? `<div class="mt-16"><label>Notes</label><p>${esc(job.notes)}</p></div>` : ""}
+
+      ${
+        job.status !== "cancelled"
+          ? `<div class="field mt-24">
+              <label>Assigned Employee</label>
+              <select id="assign-select">
+                <option value="">Unassigned</option>
+                ${employees.map((e) => `<option value="${e.uid}" ${e.uid === job.assignedTo ? "selected" : ""}>${esc(e.displayName || e.email)}</option>`).join("")}
+              </select>
+            </div>
+            <div class="flex-gap mt-16">
+              <button class="btn btn-danger btn-sm" id="cancel-btn">Cancel Job</button>
+            </div>`
+          : ""
+      }
+    </div>
+
+    <div class="card mt-16">
+      <h2 style="font-size:1.1rem;color:var(--navy);margin-bottom:16px;">Technician Report</h2>
+      ${
+        !report
+          ? `<p class="text-muted">No report started yet.</p>`
+          : `
+            <p class="mt-8"><span class="badge badge-${report.status === "submitted" ? "completed" : "assigned"}">${report.status}</span></p>
+            <div class="checklist-box mt-16">
+              ${CHECKLIST_ITEMS.map(
+                (item) => `
+                <div class="checkbox-row" style="cursor:default;">
+                  <input type="checkbox" disabled ${report.checklist && report.checklist[item.key] ? "checked" : ""}>
+                  <span>${item.label}</span>
+                </div>`
+              ).join("")}
+            </div>
+            ${report.notes ? `<div class="mt-16"><label>Technician Notes</label><p>${esc(report.notes)}</p></div>` : ""}
+            ${photosHtml}
+          `
+      }
+    </div>
+  `;
+
+  document.getElementById("assign-select")?.addEventListener("change", async (e) => {
+    const empUid = e.target.value;
+    e.target.disabled = true;
+    try {
+      if (empUid) await assignJob(jobId, empUid, user.uid);
+      else await unassignJob(jobId);
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      e.target.disabled = false;
+    }
+  });
+
+  document.getElementById("cancel-btn")?.addEventListener("click", async () => {
+    if (!confirm("Cancel this job?")) return;
+    await cancelJob(jobId);
+    location.reload();
+  });
+</script>
+
+</body>
+</html>

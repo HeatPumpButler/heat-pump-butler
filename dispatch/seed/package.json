@@ -1,0 +1,12 @@
+{
+  "name": "dispatch-seed",
+  "private": true,
+  "type": "module",
+  "description": "One-off script to seed the local Firebase emulators with fake test data. Not part of the deployed app.",
+  "scripts": {
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

@@ -1,2 +1,10 @@
 brand-source/
 .claude/
+
+# Firebase / dispatch app
+dispatch/seed/node_modules/
+dispatch/.firebase/
+dispatch/firebase-debug.log
+dispatch/firestore-debug.log
+dispatch/ui-debug.log
+dispatch/emulator-data/

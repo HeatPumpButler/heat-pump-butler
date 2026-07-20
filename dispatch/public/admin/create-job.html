@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Job | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <nav class="app-nav">
+    <a href="index.html" class="app-logo">
+      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+      Dispatch Admin
+    </a>
+    <a href="index.html" class="btn btn-secondary btn-sm">&larr; Jobs</a>
+  </nav>
+</header>
+
+<main class="app-main">
+  <div class="container" style="max-width:640px;">
+    <div class="page-head">
+      <div>
+        <h1>New Job</h1>
+        <p>Manually add a job (until Cal.com auto-import is set up)</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="error-msg" id="error-msg"></div>
+      <form id="job-form">
+        <div class="field">
+          <label for="customerName">Customer Name</label>
+          <input id="customerName" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="customerPhone">Customer Phone</label>
+            <input id="customerPhone" type="tel">
+          </div>
+          <div class="field">
+            <label for="customerEmail">Customer Email</label>
+            <input id="customerEmail" type="email">
+          </div>
+        </div>
+        <div class="field">
+          <label for="address">Service Address</label>
+          <input id="address" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="scheduledStart">Scheduled Date &amp; Time</label>
+            <input id="scheduledStart" type="datetime-local" required>
+          </div>
+          <div class="field">
+            <label>Units</label>
+            <div class="field-row" style="gap:8px;">
+              <input id="idus" type="number" min="1" value="1" placeholder="Indoor">
+              <input id="odus" type="number" min="1" value="1" placeholder="Outdoor">
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="notes">Notes</label>
+          <textarea id="notes" placeholder="Manufacturer, elevated units, anything the technician should know..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Create Job</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { requireRole } from "../shared/auth.js";
+  import { createJob } from "../shared/firestore.js";
+
+  const session = await requireRole("admin");
+  if (!session) throw new Error("redirecting");
+  const { user } = session;
+
+  document.getElementById("job-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("submit-btn");
+    const errorMsg = document.getElementById("error-msg");
+    errorMsg.classList.remove("show");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Creating…';
+
+    try {
+      const scheduledStartRaw = document.getElementById("scheduledStart").value;
+      const jobId = await createJob(
+        {
+          customerName: document.getElementById("customerName").value.trim(),
+          customerPhone: document.getElementById("customerPhone").value.trim(),
+          customerEmail: document.getElementById("customerEmail").value.trim(),
+          address: document.getElementById("address").value.trim(),
+          scheduledStart: new Date(scheduledStartRaw),
+          notes: document.getElementById("notes").value.trim(),
+          unitCounts: {
+            indoor: parseInt(document.getElementById("idus").value, 10) || 1,
+            outdoor: parseInt(document.getElementById("odus").value, 10) || 1,
+          },
+        },
+        user.uid
+      );
+      location.href = `job.html?id=${jobId}`;
+    } catch (err) {
+      console.error(err);
+      errorMsg.textContent = "Couldn't create the job. Please try again.";
+      errorMsg.classList.add("show");
+      btn.disabled = false;
+      btn.textContent = "Create Job";
+    }
+  });
+</script>
+
+</body>
+</html>

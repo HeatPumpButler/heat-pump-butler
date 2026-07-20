@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ---------------- users ----------------
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      // No client-side create/update/delete: the very first admin doc is
+      // created directly in the Firebase Console (bootstrap step), and every
+      // employee doc after that is created by createEmployeeAccount(), which
+      // runs this write while still authenticated as the admin on the
+      // default app instance (see shared/auth.js) — so this still needs
+      // isAdmin() to be true, it just never runs as the brand-new employee.
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ---------------- jobs ----------------
+    match /jobs/{jobId} {
+      // `resource` is null when the doc doesn't exist — guard before
+      // touching resource.data, or rule evaluation throws instead of
+      // just denying.
+      allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.assignedTo == request.auth.uid));
+      allow create: if isAdmin();
+      // Admin can change anything. An assigned employee may only ever flip
+      // `status` (e.g. assigned -> in_progress -> completed) — everything
+      // else (customer info, schedule, assignment) stays admin-only.
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.assignedTo == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- reports (doc id === jobId) ----------------
+    match /reports/{jobId} {
+      // Looks at the JOBS doc (which always exists by the time a report is
+      // being read/created/uploaded-to) rather than the report doc itself —
+      // this is what lets an employee read/create a report that doesn't
+      // exist yet: there's no way to prove ownership of a nonexistent
+      // report doc, but there IS a way to prove "I'm the one assigned to
+      // this job" by checking jobs/{jobId} directly.
+      function jobAssignedTo() {
+        return get(/databases/$(database)/documents/jobs/$(jobId)).data.assignedTo;
+      }
+
+      allow read: if isSignedIn() && (isAdmin() || jobAssignedTo() == request.auth.uid);
+
+      allow create: if isAdmin() || (
+        isSignedIn() &&
+        request.resource.data.employeeId == request.auth.uid &&
+        jobAssignedTo() == request.auth.uid
+      );
+
+      // Once a report is submitted, only the admin can touch it again —
+      // the employee's own edit window closes at submit time. `resource`
+      // is guaranteed non-null here since "update" only ever fires for
+      // docs that already exist.
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.employeeId == request.auth.uid &&
+        jobAssignedTo() == request.auth.uid &&
+        resource.data.status == 'draft'
+      );
+
+      allow delete: if isAdmin();
+
+      // ---------------- reports/{jobId}/photos ----------------
+      match /photos/{photoId} {
+        function reportStatus() {
+          return get(/databases/$(database)/documents/reports/$(jobId)).data.status;
+        }
+
+        allow read: if isSignedIn() && (isAdmin() || jobAssignedTo() == request.auth.uid);
+
+        allow create: if isAdmin() || (
+          isSignedIn() &&
+          request.resource.data.employeeId == request.auth.uid &&
+          jobAssignedTo() == request.auth.uid
+        );
+
+        allow update: if false;
+
+        // Employees may remove a photo they uploaded only while the report
+        // is still a draft — once submitted, only admin can clean things up.
+        allow delete: if isAdmin() || (
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          jobAssignedTo() == request.auth.uid &&
+          reportStatus() == 'draft'
+        );
+      }
+    }
+  }
+}

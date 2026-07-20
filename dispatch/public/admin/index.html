@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <nav class="app-nav">
+    <a href="index.html" class="app-logo">
+      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+      Dispatch Admin
+    </a>
+    <div class="app-nav-links">
+      <a href="index.html" class="active">Jobs</a>
+      <a href="employees.html">Employees</a>
+    </div>
+    <div class="flex-gap" style="align-items:center;">
+      <span class="user-chip" id="user-chip"></span>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+    </div>
+  </nav>
+</header>
+
+<main class="app-main">
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1>Jobs</h1>
+        <p>All scheduled cleanings</p>
+      </div>
+      <a href="create-job.html" class="btn btn-primary">+ New Job</a>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-filter="unassigned">Unassigned</button>
+      <button class="tab" data-filter="active">Active</button>
+      <button class="tab" data-filter="completed">Completed</button>
+      <button class="tab" data-filter="all">All</button>
+    </div>
+
+    <div class="card" id="jobs-card">
+      <div class="center-loading">Loading jobs…</div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { requireRole, logout } from "../shared/auth.js";
+  import { listAllJobs, listEmployees, assignJob } from "../shared/firestore.js";
+
+  const session = await requireRole("admin");
+  if (!session) throw new Error("redirecting");
+  const { user, profile } = session;
+
+  document.getElementById("user-chip").textContent = profile.displayName || profile.email;
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await logout();
+    location.href = "/login.html";
+  });
+
+  let allJobs = [];
+  let employees = [];
+  let currentFilter = "unassigned";
+
+  function fmtDate(ts) {
+    if (!ts) return "No date set";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function esc(s) {
+    const div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
+  function employeeName(uid) {
+    const e = employees.find((emp) => emp.uid === uid);
+    return e ? e.displayName || e.email : "—";
+  }
+
+  function render() {
+    const card = document.getElementById("jobs-card");
+    let jobs = allJobs;
+    if (currentFilter === "unassigned") jobs = allJobs.filter((j) => j.status === "unassigned");
+    else if (currentFilter === "active") jobs = allJobs.filter((j) => j.status === "assigned" || j.status === "in_progress");
+    else if (currentFilter === "completed") jobs = allJobs.filter((j) => j.status === "completed");
+
+    if (jobs.length === 0) {
+      card.innerHTML = `<div class="empty-state">No jobs here.</div>`;
+      return;
+    }
+
+    card.innerHTML = jobs
+      .map((j) => {
+        const assignControl =
+          j.status === "cancelled" || j.status === "completed"
+            ? ""
+            : `<select class="assign-select" data-job-id="${j.id}" style="width:auto;padding:6px 10px;font-size:0.82rem;">
+                <option value="">${j.assignedTo ? "Reassign…" : "Assign to…"}</option>
+                ${employees.map((e) => `<option value="${e.uid}" ${e.uid === j.assignedTo ? "selected" : ""}>${esc(e.displayName || e.email)}</option>`).join("")}
+              </select>`;
+
+        return `
+        <div class="job-item">
+          <div>
+            <h3><a href="job.html?id=${j.id}">${esc(j.customerName)}</a></h3>
+            <div class="meta">${esc(j.address)} &middot; ${fmtDate(j.scheduledStart)}${j.assignedTo ? " &middot; " + esc(employeeName(j.assignedTo)) : ""}</div>
+          </div>
+          <div class="right">
+            <span class="badge badge-${j.status}">${j.status.replace("_", " ")}</span>
+            ${assignControl}
+          </div>
+        </div>`;
+      })
+      .join("");
+
+    card.querySelectorAll(".assign-select").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        const empUid = sel.value;
+        const jobId = sel.dataset.jobId;
+        if (!empUid) return;
+        sel.disabled = true;
+        try {
+          await assignJob(jobId, empUid, user.uid);
+          const job = allJobs.find((j) => j.id === jobId);
+          job.assignedTo = empUid;
+          job.status = "assigned";
+          render();
+        } catch (err) {
+          console.error(err);
+          sel.disabled = false;
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentFilter = tab.dataset.filter;
+      render();
+    });
+  });
+
+  try {
+    [allJobs, employees] = await Promise.all([listAllJobs(), listEmployees({ activeOnly: true })]);
+    render();
+  } catch (err) {
+    console.error(err);
+    document.getElementById("jobs-card").innerHTML = `<div class="empty-state">Couldn't load jobs. Please refresh.</div>`;
+  }
+</script>
+
+</body>
+</html>

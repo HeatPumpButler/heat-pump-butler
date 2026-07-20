@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+<div class="center-loading"><span class="loading-spinner" style="border-top-color: var(--navy); border-color: rgba(18,32,58,0.2); border-top-color: var(--navy);"></span> Loading…</div>
+<script type="module">
+  import { waitForAuth } from "./shared/auth.js";
+  const { user, profile } = await waitForAuth();
+  if (user && profile && profile.active !== false) {
+    location.href = profile.role === "admin" ? "/admin/index.html" : "/employee/index.html";
+  } else {
+    location.href = "/login.html";
+  }
+</script>
+</body>
+</html>

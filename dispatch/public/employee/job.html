@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Detail | Heat Pump Butler Dispatch</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <nav class="app-nav">
+    <a href="index.html" class="app-logo">
+      <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+      Dispatch
+    </a>
+    <a href="index.html" class="btn btn-secondary btn-sm">&larr; My Jobs</a>
+  </nav>
+</header>
+
+<main class="app-main">
+  <div class="container" id="content">
+    <div class="center-loading">Loading job…</div>
+  </div>
+</main>
+
+<script type="module">
+  import { requireRole } from "../shared/auth.js";
+  import {
+    getJob,
+    ensureDraftReport,
+    saveReportDraft,
+    submitReport,
+    setJobStatus,
+    listPhotos,
+    addPhotoDoc,
+    deletePhotoDoc,
+  } from "../shared/firestore.js";
+  import { uploadJobPhoto, deleteJobPhoto, getPhotoUrl } from "../shared/storage.js";
+  import { CHECKLIST_ITEMS } from "../shared/checklist.js";
+
+  const session = await requireRole("employee");
+  if (!session) throw new Error("redirecting");
+  const { user } = session;
+
+  const jobId = new URLSearchParams(location.search).get("id");
+  const content = document.getElementById("content");
+
+  if (!jobId) {
+    content.innerHTML = `<div class="empty-state">No job specified.</div>`;
+    throw new Error("no job id");
+  }
+
+  let job;
+  try {
+    job = await getJob(jobId);
+  } catch (err) {
+    // Security rules deny reads on jobs not assigned to this employee —
+    // that surfaces as permission-denied here, not a null result.
+    job = null;
+  }
+
+  if (!job || job.assignedTo !== user.uid) {
+    content.innerHTML = `<div class="empty-state">Job not found, or it isn't assigned to you.</div>`;
+    throw new Error("not your job");
+  }
+
+  const report = await ensureDraftReport(jobId, user.uid);
+  const photos = await listPhotos(jobId);
+
+  const withUrls = await Promise.all(
+    photos.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) }))
+  );
+  const beforePhotos = withUrls.filter((p) => p.type === "before");
+  const afterPhotos = withUrls.filter((p) => p.type === "after");
+
+  function fmtDate(ts) {
+    if (!ts) return "No date set";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleString(undefined, { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function esc(s) {
+    const div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
+  const isSubmitted = report.status === "submitted";
+
+  content.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h1>${esc(job.customerName)}</h1>
+        <p>${esc(job.address)} &middot; ${fmtDate(job.scheduledStart)}</p>
+      </div>
+      <span class="badge badge-${job.status}" id="status-badge">${job.status.replace("_", " ")}</span>
+    </div>
+
+    <div class="card">
+      <div class="field-row">
+        <div>
+          <label>Customer Phone</label>
+          <p>${esc(job.customerPhone) || "—"}</p>
+        </div>
+        <div>
+          <label>Units</label>
+          <p>${job.unitCounts ? `${job.unitCounts.indoor} indoor / ${job.unitCounts.outdoor} outdoor` : "—"}</p>
+        </div>
+      </div>
+      ${job.notes ? `<div class="mt-16"><label>Job Notes</label><p>${esc(job.notes)}</p></div>` : ""}
+      <div class="mt-16" id="start-job-row">
+        ${
+          job.status === "assigned"
+            ? `<button class="btn btn-navy" id="start-job-btn">Start Job</button>`
+            : ""
+        }
+      </div>
+    </div>
+
+    <div class="card mt-16">
+      <h2 style="font-size:1.1rem;color:var(--navy);margin-bottom:12px;">Service Checklist</h2>
+      <div class="checklist-box">
+        ${CHECKLIST_ITEMS.map(
+          (item) => `
+          <label class="checkbox-row">
+            <input type="checkbox" data-key="${item.key}" ${report.checklist[item.key] ? "checked" : ""} ${isSubmitted ? "disabled" : ""}>
+            <span>${item.label}</span>
+          </label>`
+        ).join("")}
+      </div>
+
+      <div class="field">
+        <label for="notes">Notes</label>
+        <textarea id="notes" placeholder="Anything worth noting about this job..." ${isSubmitted ? "disabled" : ""}>${esc(report.notes)}</textarea>
+      </div>
+
+      <div class="photo-section">
+        <h4>Before Photos</h4>
+        <div class="photo-grid" id="before-grid"></div>
+        ${isSubmitted ? "" : `<label class="photo-upload-btn">+ Add before photo(s)<input type="file" accept="image/*" capture="environment" multiple hidden id="before-input"></label>`}
+      </div>
+
+      <div class="photo-section">
+        <h4>After Photos</h4>
+        <div class="photo-grid" id="after-grid"></div>
+        ${isSubmitted ? "" : `<label class="photo-upload-btn">+ Add after photo(s)<input type="file" accept="image/*" capture="environment" multiple hidden id="after-input"></label>`}
+      </div>
+
+      ${
+        isSubmitted
+          ? `<div class="success-msg show mt-16">Report submitted. Thanks!</div>`
+          : `<div class="flex-gap mt-24">
+              <button class="btn btn-secondary" id="save-draft-btn">Save Draft</button>
+              <button class="btn btn-primary" id="submit-btn">Submit Report</button>
+            </div>`
+      }
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+  `;
+
+  if (job.status === "assigned") {
+    document.getElementById("start-job-btn")?.addEventListener("click", async () => {
+      await setJobStatus(jobId, "in_progress");
+      document.getElementById("status-badge").textContent = "in progress";
+      document.getElementById("status-badge").className = "badge badge-in_progress";
+      document.getElementById("start-job-row").innerHTML = "";
+    });
+  }
+
+  function renderPhotoGrid(gridId, list) {
+    const grid = document.getElementById(gridId);
+    grid.innerHTML = list
+      .map(
+        (p) => `
+      <div class="photo-thumb" data-photo-id="${p.id}">
+        <img src="${p.url}" alt="job photo">
+        ${isSubmitted ? "" : `<button class="remove-btn" data-photo-id="${p.id}" data-storage-path="${p.storagePath}" aria-label="Remove photo">&times;</button>`}
+      </div>`
+      )
+      .join("");
+
+    grid.querySelectorAll(".remove-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const photoId = btn.dataset.photoId;
+        const storagePath = btn.dataset.storagePath;
+        btn.closest(".photo-thumb").style.opacity = "0.4";
+        try {
+          await deletePhotoDoc(jobId, photoId);
+          await deleteJobPhoto(storagePath);
+          const idx = list.findIndex((p) => p.id === photoId);
+          if (idx > -1) list.splice(idx, 1);
+          renderPhotoGrid(gridId, list);
+        } catch (err) {
+          console.error(err);
+          btn.closest(".photo-thumb").style.opacity = "1";
+        }
+      });
+    });
+  }
+
+  renderPhotoGrid("before-grid", beforePhotos);
+  renderPhotoGrid("after-grid", afterPhotos);
+
+  function wireUpload(inputId, gridId, type, list) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("change", async () => {
+      const files = Array.from(input.files || []);
+      input.value = "";
+      for (const file of files) {
+        try {
+          const { storagePath, downloadURL, photoId: tempId } = await uploadJobPhoto(jobId, file);
+          const photoId = await addPhotoDoc(jobId, {
+            storagePath,
+            type,
+            uploadedBy: user.uid,
+            employeeId: user.uid,
+          });
+          list.push({ id: photoId, storagePath, type, url: downloadURL });
+          renderPhotoGrid(gridId, list);
+        } catch (err) {
+          console.error(err);
+          showError("Couldn't upload one of those photos. Please try again.");
+        }
+      }
+    });
+  }
+
+  wireUpload("before-input", "before-grid", "before", beforePhotos);
+  wireUpload("after-input", "after-grid", "after", afterPhotos);
+
+  function readForm() {
+    const checklist = {};
+    document.querySelectorAll("[data-key]").forEach((cb) => {
+      checklist[cb.dataset.key] = cb.checked;
+    });
+    const notes = document.getElementById("notes").value;
+    return { checklist, notes };
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.textContent = msg;
+    el.classList.add("show");
+  }
+
+  document.getElementById("save-draft-btn")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      await saveReportDraft(jobId, readForm());
+      btn.textContent = "Saved!";
+      setTimeout(() => {
+        btn.textContent = "Save Draft";
+        btn.disabled = false;
+      }, 1200);
+    } catch (err) {
+      console.error(err);
+      showError("Couldn't save your draft. Please try again.");
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("submit-btn")?.addEventListener("click", async (e) => {
+    if (!confirm("Submit this report? You won't be able to edit it afterward.")) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Submitting…';
+    try {
+      await submitReport(jobId, readForm());
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      showError("Couldn't submit the report. Please try again.");
+      btn.disabled = false;
+      btn.textContent = "Submit Report";
+    }
+  });
+</script>
+
+</body>
+</html>
