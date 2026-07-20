@@ -4,7 +4,9 @@ A one-page marketing site for Heat Pump Butler — professional residential heat
 
 ## Live site
 
-https://heatpumpbutler.com (custom domain, via GitHub Pages — also reachable at https://heatpumpbutler.github.io/heat-pump-butler/)
+https://www.heatpumpbutler.com (custom domain, via GitHub Pages — also reachable at https://heatpumpbutler.github.io/heat-pump-butler/)
+
+The bare `heatpumpbutler.com` (no "www") currently does **not** work — Squarespace has a backend bug where the apex `A` records show correctly in their DNS Settings panel but aren't actually served, even from their own nameservers, even after deleting and re-adding them. `www` is the primary/working domain until Squarespace support resolves that (or a domain-forwarding rule is set up to redirect the apex to `www`).
 
 ## Structure
 
@@ -51,12 +53,12 @@ The contact form at the bottom is currently a demo placeholder — submitting it
 
 ## Custom domain
 
-`heatpumpbutler.com` is configured as the GitHub Pages custom domain via the `CNAME` file at the repo root. DNS at the registrar needs:
+`www.heatpumpbutler.com` is configured as the GitHub Pages custom domain via the `CNAME` file at the repo root (Squarespace DNS, using their own nameservers). "Enforce HTTPS" is on and the certificate is issued/valid.
 
-- 4 `A` records for the apex domain, pointing to: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
-- 1 `CNAME` record: `www` → `heatpumpbutler.github.io`
+DNS at the registrar (Squarespace) has:
 
-"Enforce HTTPS" in the repo's Pages settings should be turned on once DNS has propagated and GitHub issues the certificate (can take a few hours after the DNS records go live).
+- 1 `CNAME` record: `www` → `heatpumpbutler.github.io` — **working**
+- 4 `A` records for the apex domain, pointing to: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` — configured correctly in the Squarespace panel, but **not actually served**, including when queried directly against Squarespace's own authoritative nameserver (`nsd1.squarespacedns.com`). This persisted after deleting and re-adding the records, so it's a Squarespace-side bug, not a propagation delay. Filed as a support case with them; once fixed, `CNAME` can be switched back to the apex `heatpumpbutler.com` if preferred, or a domain-forwarding rule (apex → www) can be set up instead.
 
 ## Editing
 
