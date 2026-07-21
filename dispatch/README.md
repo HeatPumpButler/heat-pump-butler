@@ -18,12 +18,14 @@ dispatch/
 │   ├── employee/
 │   │   ├── home.html        ← dashboard: greeting, date strip, stats, next job, day overview
 │   │   ├── index.html       ← "Schedule" — full job list (Upcoming/Completed/All)
-│   │   └── job.html         ← job details mode + job-in-progress mode (timer, per-item checklist/notes/photos)
+│   │   └── job.html         ← job details mode + job-in-progress mode (timer, per-item checklist/notes/before+after photos, Equipment Inspection, Air Quality Findings, Summary)
 │   ├── admin/
 │   │   ├── index.html       ← job dashboard (filter/assign)
 │   │   ├── create-job.html  ← manual job entry (stand-in for Cal.com auto-import, Phase 2)
-│   │   ├── job.html         ← job detail + assign/reassign + view submitted report/photos
+│   │   ├── job.html         ← job detail + assign/reassign + view submitted report/photos + link to the customer report
 │   │   └── employees.html   ← add/deactivate employee accounts
+│   ├── report/
+│   │   └── index.html       ← printable "Home Air Health Report" (admin-only for now) — see below
 │   └── shared/               ← firebase.js, auth.js, firestore.js, storage.js, checklist.js, styles.css
 ├── seed/                     ← one-off Node script to seed the LOCAL emulators with fake test data (not part of the deployed app)
 ├── firebase.json
@@ -67,6 +69,18 @@ To persist emulator data between restarts instead of reseeding every time: `fire
    firebase deploy --only firestore:rules,storage:rules,hosting
    ```
 5. Create the very first admin account directly in the Firebase Console (Authentication → add user, then Firestore → manually add a matching `users/{uid}` doc with `role: "admin"`) — every other account after that is created through the Admin → Employees screen in the app itself.
+
+## Customer report
+
+Once a technician submits a report, `admin/job.html` shows a **"View Report"** button linking to `report/index.html?id={jobId}` — a printable, customer-facing page modeled on the "Home Air Health Report" mockup: health score + star rating, system summary, service performed, before/after photo pairs (for the 4 items in `REPORT_BEFORE_AFTER_ITEMS` in `shared/checklist.js`), Air Quality Findings (only if the job has the add-on), Equipment Inspection, technician notes, recommendations, next recommended service, and estimated savings. A "Print / Save as PDF" button uses the browser's own `window.print()` — no PDF library needed.
+
+The health score, system summary, recommendations, and next-service date all get sensible computed defaults (see `shared/checklist.js`: `computeHealthScore`, `defaultSystemSummary`, `defaultRecommendations`, `defaultNextServiceDate`) the first time a technician reaches the "Inspection & Summary" section of a job, and are editable from there before submitting.
+
+**Scope note:** this report view is admin-only right now (`requireRole("admin")`). Sharing it directly with the customer via a public, no-login link is a real security-model addition (needs its own scoped rule, e.g. a random share token) and is intentionally not built yet — for now, print/export it and send it to the customer manually.
+
+## Air Quality Test add-on
+
+A $49 flat add-on (no extra appointment time) toggled on the marketing site's quote calculator or in Admin → New Job, stored as `job.addOns.airQualityTest`. When set, the employee's Inspection & Summary step includes six Air Quality Findings dropdowns (Filter Condition, Coil Cleanliness, Mold Growth, Drain Pan, Drain Line, Odor — see `AIR_QUALITY_FIELDS` in `shared/checklist.js`), which also feed into the computed health score and appear in the customer report.
 
 ## Not built yet (by design)
 

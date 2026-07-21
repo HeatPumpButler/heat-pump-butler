@@ -92,6 +92,11 @@
           <input id="outdoorSerial" placeholder="Optional">
         </div>
 
+        <label style="display:flex; align-items:flex-start; gap:10px; font-weight:600; cursor:pointer; margin-bottom:20px;">
+          <input type="checkbox" id="airQualityTest" style="width:18px; height:18px; margin-top:2px;">
+          <span>Air Quality Test add-on <span class="text-muted" style="font-weight:400;">(+$49)</span></span>
+        </label>
+
         <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Create Job</button>
       </form>
     </div>
@@ -132,6 +137,9 @@
             manufacturer: document.getElementById("manufacturer").value || null,
             model: document.getElementById("model").value.trim() || null,
             outdoorUnitSerial: document.getElementById("outdoorSerial").value.trim() || null,
+          },
+          addOns: {
+            airQualityTest: document.getElementById("airQualityTest").checked,
           },
         },
         user.uid

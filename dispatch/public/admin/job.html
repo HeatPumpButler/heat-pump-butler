@@ -117,6 +117,7 @@
         <div><label>Units</label><p>${job.unitCounts ? `${job.unitCounts.indoor} indoor / ${job.unitCounts.outdoor} outdoor` : "—"}</p></div>
         <div><label>Source</label><p>${job.source === "cal_com" ? "Cal.com booking" : "Manually created"}</p></div>
       </div>
+      ${job.addOns && job.addOns.airQualityTest ? `<p class="mt-16"><span class="badge badge-assigned">Air Quality Test add-on</span></p>` : ""}
       ${job.notes ? `<div class="mt-16"><label>Notes</label><p>${esc(job.notes)}</p></div>` : ""}
 
       ${job.equipment && (job.equipment.manufacturer || job.equipment.model || job.equipment.outdoorUnitSerial) ? `
@@ -154,6 +155,7 @@
             <div class="flex-gap" style="align-items:center;">
               <span class="badge badge-${report.status === "submitted" ? "completed" : "assigned"}">${report.status}</span>
               ${report.timerElapsedSeconds ? `<span class="text-muted" style="font-size:0.9rem;">Time on job: ${fmtElapsed(report.timerElapsedSeconds)}</span>` : ""}
+              ${report.status === "submitted" ? `<a href="../report/index.html?id=${jobId}" class="btn btn-navy btn-sm" style="margin-left:auto;">View Report</a>` : ""}
             </div>
             <div class="checklist-box mt-16">
               ${checklistHtml}

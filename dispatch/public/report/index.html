@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Air Health Report | Heat Pump Butler</title>
+<link rel="icon" href="../../assets/logo-mark-hp.png">
+<style>
+  :root {
+    --navy: #12203a;
+    --green: #347434;
+    --green-light: #eaf3e9;
+    --ice: #f5f7f8;
+    --text: #1e2a2f;
+    --muted: #5c6b70;
+    --radius: 14px;
+    --shadow: 0 10px 30px rgba(18, 32, 58, 0.1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--ice);
+    line-height: 1.5;
+  }
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 24px; background: white; border-bottom: 1px solid rgba(18,32,58,0.08);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .toolbar a { color: var(--navy); font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+  .toolbar button {
+    background: var(--green); color: white; border: none; border-radius: 999px;
+    padding: 10px 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+  }
+
+  .sheet { max-width: 1000px; margin: 24px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+
+  .report-header { padding: 28px 32px; display: grid; grid-template-columns: 1.3fr 1fr auto; gap: 20px; align-items: start; border-bottom: 1px solid rgba(18,32,58,0.08); }
+  .report-header .brand { display: flex; align-items: center; gap: 10px; }
+  .report-header .brand img { height: 40px; }
+  .report-header .brand-text .name { font-weight: 800; color: var(--navy); font-size: 1.2rem; letter-spacing: -0.01em; }
+  .report-header .brand-text .tag { color: var(--green); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; }
+  .report-header .mission { color: var(--muted); font-size: 0.82rem; font-style: italic; margin-top: 10px; max-width: 30ch; }
+  .meta-list { font-size: 0.85rem; color: var(--text); }
+  .meta-list div { margin-bottom: 8px; }
+  .meta-list .k { color: var(--muted); }
+  .score-badge { background: var(--navy); color: white; border-radius: 12px; padding: 18px 22px; text-align: center; min-width: 170px; }
+  .score-badge .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; }
+  .score-badge .score { font-size: 2.4rem; font-weight: 800; line-height: 1.1; }
+  .score-badge .score span { font-size: 1rem; font-weight: 600; opacity: 0.7; }
+  .score-badge .stars { color: #f5c518; margin: 4px 0; letter-spacing: 2px; }
+  .score-badge .condition { font-size: 0.8rem; font-weight: 700; }
+
+  .report-body { display: grid; grid-template-columns: 0.9fr 1.3fr; gap: 28px; padding: 28px 32px; }
+  @media (max-width: 800px) { .report-body { grid-template-columns: 1fr; } }
+
+  .section { margin-bottom: 24px; }
+  .section h3 { color: var(--green); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px; }
+  .section p { font-size: 0.92rem; }
+
+  .check-list-report li { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; font-size: 0.9rem; }
+  .check-list-report li::before { content: "\2713"; color: var(--green); font-weight: 800; }
+
+  .next-service-card { background: var(--green-light); border-radius: 10px; padding: 14px 16px; margin-top: 8px; }
+  .next-service-card .k { font-size: 0.78rem; color: var(--muted); }
+  .next-service-card .v { font-weight: 700; color: var(--navy); }
+
+  .savings-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 0.88rem; }
+  .savings-row .up { color: var(--green); font-weight: 700; }
+  .savings-note { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
+
+  .ba-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 560px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-pair-label { font-size: 0.8rem; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+  .ba-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border-radius: 8px; overflow: hidden; }
+  .ba-tile { position: relative; aspect-ratio: 4/3; background: var(--ice); }
+  .ba-tile img { width: 100%; height: 100%; object-fit: cover; }
+  .ba-tile .tag { position: absolute; top: 6px; left: 6px; background: var(--navy); color: white; font-size: 0.6rem; font-weight: 800; padding: 3px 7px; border-radius: 5px; letter-spacing: 0.04em; }
+  .ba-tile.empty { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.75rem; }
+
+  .findings-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .findings-table td { padding: 7px 4px; border-bottom: 1px solid rgba(18,32,58,0.06); }
+  .findings-table td:last-child { text-align: right; font-weight: 700; color: var(--navy); }
+
+  .equip-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .equip-cols h4 { font-size: 0.78rem; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .equip-cols li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.88rem; }
+  .equip-cols li.fail::before { content: "\2717"; color: #b3261e; font-weight: 800; }
+  .equip-cols li.pass::before { content: "\2713"; color: var(--green); font-weight: 800; }
+
+  .notes-list li { font-size: 0.88rem; padding: 4px 0; padding-left: 14px; position: relative; }
+  .notes-list li::before { content: "\2022"; position: absolute; left: 0; color: var(--green); }
+
+  .recommend-box { background: var(--green-light); border-radius: 10px; padding: 14px 16px; font-size: 0.88rem; color: var(--navy); font-weight: 600; }
+
+  .report-footer { background: var(--navy); color: rgba(255,255,255,0.85); padding: 16px 32px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 0.82rem; }
+  .report-footer .thanks { font-style: italic; color: white; }
+
+  @media print {
+    body { background: white; }
+    .toolbar { display: none; }
+    .sheet { margin: 0; box-shadow: none; border-radius: 0; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <a href="#" id="back-link">&larr; Back to Job</a>
+  <button id="print-btn">Print / Save as PDF</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="center-loading" style="padding:60px; text-align:center; color:var(--muted);">Loading report…</div>
+</div>
+
+<script type="module">
+  import { requireRole } from "../shared/auth.js";
+  import { getJob, getReport, listPhotos, getUserDoc } from "../shared/firestore.js";
+  import { getPhotoUrl } from "../shared/storage.js";
+  import { CHECKLIST_ITEMS, REPORT_BEFORE_AFTER_ITEMS, AIR_QUALITY_FIELDS, EQUIPMENT_INSPECTION_ITEMS, starsForScore } from "../shared/checklist.js";
+
+  const session = await requireRole("admin");
+  if (!session) throw new Error("redirecting");
+
+  const jobId = new URLSearchParams(location.search).get("id");
+  const sheet = document.getElementById("sheet");
+  document.getElementById("back-link").href = `../admin/job.html?id=${jobId}`;
+  document.getElementById("print-btn").addEventListener("click", () => window.print());
+
+  if (!jobId) {
+    sheet.innerHTML = `<div style="padding:60px;text-align:center;">No job specified.</div>`;
+    throw new Error("no job id");
+  }
+
+  const job = await getJob(jobId);
+  const report = await getReport(jobId);
+
+  if (!job || !report) {
+    sheet.innerHTML = `<div style="padding:60px;text-align:center;">Report not found.</div>`;
+    throw new Error("no report");
+  }
+
+  const technician = job.assignedTo ? await getUserDoc(job.assignedTo) : null;
+  const rawPhotos = await listPhotos(jobId);
+  const photos = await Promise.all(rawPhotos.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) })));
+
+  function esc(s) {
+    const div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return "—";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  }
+
+  function photoFor(itemKey, phase) {
+    return photos.find((p) => p.itemKey === itemKey && p.phase === phase);
+  }
+
+  function conditionLabel(score) {
+    if (score >= 90) return "Excellent Condition";
+    if (score >= 75) return "Good Condition";
+    if (score >= 60) return "Fair Condition";
+    if (score >= 40) return "Needs Attention";
+    return "Poor Condition";
+  }
+
+  const score = report.healthScore ?? 100;
+  const stars = starsForScore(score);
+  const equipmentInspection = report.equipmentInspection || { indoor: {}, outdoor: {} };
+  const savings = report.savings || { airflowPercent: 18, energyPercent: 9, airQualityNote: "Significant" };
+
+  const beforeAfterHtml = REPORT_BEFORE_AFTER_ITEMS.map((item) => {
+    const before = photoFor(item.key, "before");
+    const after = photoFor(item.key, "after");
+    if (!before && !after) return "";
+    return `
+      <div>
+        <div class="ba-pair-label">${esc(item.label)}</div>
+        <div class="ba-pair">
+          <div class="ba-tile ${before ? "" : "empty"}">${before ? `<span class="tag">BEFORE</span><img src="${before.url}">` : "No before photo"}</div>
+          <div class="ba-tile ${after ? "" : "empty"}">${after ? `<span class="tag">AFTER</span><img src="${after.url}">` : "No after photo"}</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  const hasAnyBeforeAfter = REPORT_BEFORE_AFTER_ITEMS.some((item) => photoFor(item.key, "before") || photoFor(item.key, "after"));
+
+  const equipmentHtml = ["indoor", "outdoor"].map((zone) => `
+    <div>
+      <h4>${zone === "indoor" ? "Indoor Unit" : "Outdoor Unit"}</h4>
+      <ul>
+        ${EQUIPMENT_INSPECTION_ITEMS[zone].map((item) => {
+          const pass = equipmentInspection[zone] ? equipmentInspection[zone][item.key] !== false : true;
+          return `<li class="${pass ? "pass" : "fail"}">${esc(item.label)}</li>`;
+        }).join("")}
+      </ul>
+    </div>`).join("");
+
+  const airQualityHtml = job.addOns && job.addOns.airQualityTest && report.airQualityFindings
+    ? `
+      <div class="section">
+        <h3>Air Quality Findings</h3>
+        <table class="findings-table">
+          ${AIR_QUALITY_FIELDS.map((f) => `<tr><td>${esc(f.label)}</td><td>${esc(report.airQualityFindings[f.key] || "—")}</td></tr>`).join("")}
+        </table>
+      </div>`
+    : "";
+
+  const notesHtml = CHECKLIST_ITEMS
+    .map((item) => report.checklist[item.key])
+    .filter((state) => state && state.note)
+    .map((state) => `<li>${esc(state.note)}</li>`)
+    .join("");
+
+  sheet.innerHTML = `
+    <div class="report-header">
+      <div>
+        <div class="brand">
+          <img src="../../assets/logo-mark-hp.png" alt="Heat Pump Butler">
+          <div class="brand-text">
+            <div class="name">HEAT PUMP BUTLER</div>
+            <div class="tag">Home Air Health Report</div>
+          </div>
+        </div>
+        <p class="mission">Our mission is simple: Cleaner systems. Healthier air. Happier homes.</p>
+      </div>
+      <div class="meta-list">
+        <div><span class="k">Date:</span> ${fmtDate(report.submittedAt || job.scheduledStart)}</div>
+        <div><span class="k">Address:</span> ${esc(job.address)}</div>
+        <div><span class="k">Technician:</span> ${esc(technician ? technician.displayName : "—")}</div>
+      </div>
+      <div class="score-badge">
+        <div class="label">Overall Health Score</div>
+        <div class="score">${score}<span>/100</span></div>
+        <div class="stars">${"★".repeat(stars)}${"☆".repeat(5 - stars)}</div>
+        <div class="condition">${conditionLabel(score)}</div>
+      </div>
+    </div>
+
+    <div class="report-body">
+      <div>
+        <div class="section">
+          <h3>System Summary</h3>
+          <p>${esc(report.systemSummary)}</p>
+        </div>
+
+        <div class="section">
+          <h3>Service Performed</h3>
+          <ul class="check-list-report">
+            ${CHECKLIST_ITEMS.map((item) => `<li>${esc(item.label)}</li>`).join("")}
+          </ul>
+        </div>
+
+        <div class="section">
+          <h3>Next Recommended Service</h3>
+          <div class="next-service-card">
+            <div class="k">Deep Cleaning Due</div>
+            <div class="v">${fmtDate(report.nextRecommendedService)}</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Your Savings</h3>
+          <div class="savings-row"><span class="up">&#9650; ${savings.airflowPercent}%</span> Airflow Improvement</div>
+          <div class="savings-row"><span class="up">&#9650; ${savings.energyPercent}%</span> Energy Improvement</div>
+          <div class="savings-row"><span class="up">&#9650; ${esc(savings.airQualityNote)}</span> Cleaner Indoor Air</div>
+          <p class="savings-note">*Improvements are estimated based on system condition before and after cleaning.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="section">
+          <h3>Before &amp; After</h3>
+          ${hasAnyBeforeAfter ? `<div class="ba-grid">${beforeAfterHtml}</div>` : `<p class="text-muted" style="color:var(--muted);">No before/after photos captured for this visit.</p>`}
+        </div>
+
+        ${airQualityHtml}
+
+        <div class="section">
+          <h3>Equipment Inspection</h3>
+          <div class="equip-cols">${equipmentHtml}</div>
+        </div>
+
+        <div class="section">
+          <h3>Technician Notes</h3>
+          ${notesHtml ? `<ul class="notes-list">${notesHtml}</ul>` : `<p style="color:var(--muted);">No additional notes.</p>`}
+          ${report.notes ? `<p class="mt-8" style="margin-top:8px;">${esc(report.notes)}</p>` : ""}
+        </div>
+
+        <div class="section">
+          <h3>Recommendations</h3>
+          <div class="recommend-box">${esc(report.recommendations)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-footer">
+      <span>www.heatpumpbutler.com</span>
+      <span class="thanks">Thank you for trusting Heat Pump Butler!</span>
+    </div>
+  `;
+</script>
+
+</body>
+</html>

@@ -20,15 +20,17 @@ The Pricing section includes a live estimator (`index.html`, `<script>` near the
 
 - Base visit (1 IDU + 1 ODU): **$199**, ~1 hour
 - Every additional unit, either kind: **+$75** and **+30 minutes**
+- Air Quality Test add-on (optional checkbox): **+$49**, **+0 minutes** (performed alongside the regular cleaning)
 
-So price and appointment length both scale off the same "extra units" count. The raw duration is then rounded **up** to the nearest length Cal.com actually offers (see below) — better to over-allocate the technician's time than under-allocate it. Update `BASE_PRICE`, `PRICE_PER_EXTRA`, `BASE_DURATION`, and `DURATION_PER_EXTRA` in that script to change the formula, or `MAX_IDU` / `MAX_ODU` to change the stepper caps (currently 6 IDUs, 3 ODUs).
+So price and appointment length both scale off the same "extra units" count (plus the flat add-on price). The raw duration is then rounded **up** to the nearest length Cal.com actually offers (see below) — better to over-allocate the technician's time than under-allocate it. Update `BASE_PRICE`, `PRICE_PER_EXTRA`, `BASE_DURATION`, `DURATION_PER_EXTRA`, and `AIR_QUALITY_TEST_PRICE` in that script to change the formula, or `MAX_IDU` / `MAX_ODU` to change the stepper caps (currently 6 IDUs, 3 ODUs).
 
-The calculator also collects two extra details that don't come from the site's own form:
+The calculator also collects a few extra details that don't come from the site's own form:
 
 - **Manufacturer** — a dropdown (Mitsubishi Electric, Daikin, Fujitsu, LG, Samsung, Gree, Carrier, Other).
-- **Units 10+ feet off the ground** — a checkbox.
+- **Units 10+ feet off the ground** — a checkbox (informational only, no price/duration effect).
+- **Air Quality Test** — a checkbox (affects price, see above); when requested, the dispatch app's report includes an Air Quality Findings section for the technician to fill in.
 
-Both are informational only — neither affects price or duration. They're passed along as free text in the booking's prefilled "notes" field when someone clicks "Get This Quote & Book" (see below) — the technician sees them on the Cal.com booking itself, no separate form submission needed.
+These are passed along as free text in the booking's prefilled "notes" field when someone clicks "Get This Quote & Book" (see below) — the technician sees them on the Cal.com booking itself, no separate form submission needed.
 
 ## Booking widget (Cal.com)
 

@@ -495,6 +495,11 @@
             <input type="checkbox" id="elevated" onchange="updateQuote()" style="width:18px; height:18px; margin-top:2px;">
             <span>Any units mounted more than 10 feet off the ground?</span>
           </label>
+
+          <label style="margin-top:12px; display:flex; align-items:flex-start; gap:10px; font-weight:600; cursor:pointer;">
+            <input type="checkbox" id="airQualityTest" onchange="updateQuote()" style="width:18px; height:18px; margin-top:2px;">
+            <span>Add an Air Quality Test? <span style="color:var(--muted); font-weight:400;">(+$49)</span></span>
+          </label>
         </div>
         <div class="calc-result">
           <div class="label">Estimated Price</div>
@@ -716,6 +721,7 @@
   const PRICE_PER_EXTRA = 75;   // each additional unit, either kind
   const BASE_DURATION = 60;     // minutes, 1 IDU + 1 ODU
   const DURATION_PER_EXTRA = 30; // minutes, each additional unit
+  const AIR_QUALITY_TEST_PRICE = 49; // flat add-on, no extra appointment time
 
   const MAX_IDU = 6;
   const MAX_ODU = 3;
@@ -737,10 +743,10 @@
   let odus = 1;
   let currentDuration = BASE_DURATION;
 
-  function computeQuote(idus, odus) {
+  function computeQuote(idus, odus, airQualityTest) {
     const extra = (idus - 1) + (odus - 1);
     return {
-      price: BASE_PRICE + extra * PRICE_PER_EXTRA,
+      price: BASE_PRICE + extra * PRICE_PER_EXTRA + (airQualityTest ? AIR_QUALITY_TEST_PRICE : 0),
       duration: snapDuration(BASE_DURATION + extra * DURATION_PER_EXTRA),
     };
   }
@@ -761,11 +767,13 @@
   }
 
   function updateQuote() {
-    const { price, duration } = computeQuote(idus, odus);
+    const airQualityTest = document.getElementById('airQualityTest').checked;
+    const { price, duration } = computeQuote(idus, odus, airQualityTest);
     currentDuration = duration;
 
     document.getElementById('calc-total').textContent = '$' + price;
-    const breakdown = idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
+    let breakdown = idus + ' indoor unit' + (idus === 1 ? '' : 's') + ' · ' + odus + ' outdoor unit' + (odus === 1 ? '' : 's');
+    if (airQualityTest) breakdown += ' · +$' + AIR_QUALITY_TEST_PRICE + ' air quality test';
     document.getElementById('calc-breakdown').textContent = breakdown;
     document.getElementById('calc-duration').textContent = formatDuration(duration);
   }
@@ -773,10 +781,12 @@
   function bookAppointment() {
     const manufacturer = document.getElementById('manufacturer').value;
     const elevated = document.getElementById('elevated').checked;
+    const airQualityTest = document.getElementById('airQualityTest').checked;
 
     let details = idus + ' indoor unit(s), ' + odus + ' outdoor unit(s)';
     if (manufacturer) details += ' — manufacturer: ' + manufacturer;
     if (elevated) details += ' — units mounted 10+ ft off the ground';
+    if (airQualityTest) details += ' — Air Quality Test add-on requested';
 
     loadCalEmbed(currentDuration, details);
 

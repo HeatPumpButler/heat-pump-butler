@@ -14,7 +14,16 @@ import {
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./firebase.js";
-import { emptyChecklist } from "./checklist.js";
+import {
+  emptyChecklist,
+  emptyEquipmentInspection,
+  defaultAirQualityFindings,
+  computeHealthScore,
+  defaultSystemSummary,
+  defaultRecommendations,
+  defaultNextServiceDate,
+  defaultSavings,
+} from "./checklist.js";
 
 /* ---------------- Users ---------------- */
 
@@ -66,6 +75,7 @@ export async function createJob(data, createdBy) {
     notes: data.notes || "",
     unitCounts: data.unitCounts || null,
     equipment: data.equipment || null, // { manufacturer, model, outdoorUnitSerial }
+    addOns: data.addOns || { airQualityTest: false },
     source: "manual",
     calBookingUid: null,
     calEventTypeSlug: null,
@@ -193,6 +203,40 @@ export async function updateChecklistItem(jobId, itemKey, updates) {
   );
 }
 
+/**
+ * Populates the Inspection & Summary fields (health score, system summary,
+ * recommendations, next recommended service, equipment inspection, and —
+ * if the job has the Air Quality Test add-on — air quality findings) with
+ * computed defaults, but only the first time this is called for a report
+ * (checked via presence of `equipmentInspection`) so it never clobbers a
+ * technician's edits on subsequent visits to this screen.
+ */
+export async function ensureInspectionDefaults(jobId, job, report) {
+  if (report.equipmentInspection) return report;
+
+  const equipmentInspection = emptyEquipmentInspection();
+  const airQualityFindings = job.addOns && job.addOns.airQualityTest ? defaultAirQualityFindings() : null;
+  const healthScore = computeHealthScore(equipmentInspection, airQualityFindings);
+
+  const fresh = {
+    equipmentInspection,
+    airQualityFindings,
+    healthScore,
+    systemSummary: defaultSystemSummary(healthScore),
+    recommendations: defaultRecommendations(healthScore),
+    nextRecommendedService: Timestamp.fromDate(defaultNextServiceDate(job.scheduledStart)),
+    savings: defaultSavings(),
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(doc(db, REPORTS, jobId), fresh, { merge: true });
+  return { ...report, ...fresh };
+}
+
+/** Saves any subset of the Inspection & Summary fields as the technician edits them. */
+export async function saveInspectionData(jobId, data) {
+  await setDoc(doc(db, REPORTS, jobId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 export async function submitReport(jobId) {
   await setDoc(
     doc(db, REPORTS, jobId),
@@ -243,10 +287,11 @@ export async function finalizeTimer(jobId) {
 
 /* ---------------- Photos (subcollection of reports) ---------------- */
 
-export async function addPhotoDoc(jobId, { storagePath, itemKey, uploadedBy, employeeId }) {
+export async function addPhotoDoc(jobId, { storagePath, itemKey, phase, uploadedBy, employeeId }) {
   const ref = await addDoc(collection(db, REPORTS, jobId, "photos"), {
     storagePath,
     itemKey: itemKey || null,
+    phase: phase || null, // 'before' | 'after' | null
     uploadedBy,
     employeeId,
     uploadedAt: serverTimestamp(),

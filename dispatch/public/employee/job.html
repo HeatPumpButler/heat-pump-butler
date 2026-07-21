@@ -26,6 +26,8 @@
   import {
     getJob,
     ensureDraftReport,
+    ensureInspectionDefaults,
+    saveInspectionData,
     saveReportNotes,
     updateChecklistItem,
     submitReport,
@@ -37,7 +39,14 @@
     finalizeTimer,
   } from "../shared/firestore.js";
   import { uploadJobPhoto, getPhotoUrl } from "../shared/storage.js";
-  import { CHECKLIST_ITEMS, checklistProgress, firstIncompleteItem } from "../shared/checklist.js";
+  import {
+    CHECKLIST_ITEMS,
+    checklistProgress,
+    firstIncompleteItem,
+    EQUIPMENT_INSPECTION_ITEMS,
+    AIR_QUALITY_FIELDS,
+    computeHealthScore,
+  } from "../shared/checklist.js";
 
   const session = await requireRole("employee");
   if (!session) throw new Error("redirecting");
@@ -64,6 +73,9 @@
   }
 
   let report = await ensureDraftReport(jobId, user.uid);
+  if (job.status === "in_progress" || job.status === "completed") {
+    report = await ensureInspectionDefaults(jobId, job, report);
+  }
   let photos = await loadPhotos();
   let activeKey = firstIncompleteItem(report.checklist);
   let timerInterval = null;
@@ -73,8 +85,14 @@
     return Promise.all(raw.map(async (p) => ({ ...p, url: await getPhotoUrl(p.storagePath) })));
   }
 
-  function photosFor(itemKey) {
-    return photos.filter((p) => p.itemKey === itemKey);
+  function photosFor(itemKey, phase) {
+    return photos.filter((p) => p.itemKey === itemKey && (phase === undefined || p.phase === phase));
+  }
+
+  function dateInputValue(ts) {
+    if (!ts) return "";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toISOString().slice(0, 10);
   }
 
   function esc(s) {
@@ -182,6 +200,7 @@
       await startOrResumeTimer(jobId);
       job.status = "in_progress";
       report = await ensureDraftReport(jobId, user.uid);
+      report = await ensureInspectionDefaults(jobId, job, report);
       activeKey = firstIncompleteItem(report.checklist);
       render();
     });
@@ -216,6 +235,8 @@
         <textarea id="overall-notes" placeholder="Anything else worth noting about this job..." ${isSubmitted ? "disabled" : ""}>${esc(report.notes)}</textarea>
       </div>
 
+      ${renderInspectionSection(isSubmitted)}
+
       ${isSubmitted
         ? `<div class="success-msg show mt-16">Report submitted. Thanks!</div>`
         : `<button class="btn btn-primary btn-block mt-16" id="submit-btn">Submit Report</button>`
@@ -224,6 +245,7 @@
     `;
 
     renderChecklistItems(isSubmitted);
+    wireInspectionHandlers(isSubmitted);
 
     if (!isSubmitted) {
       document.getElementById("pause-resume-btn").addEventListener("click", async () => {
@@ -249,6 +271,7 @@
         btn.innerHTML = '<span class="loading-spinner"></span> Submitting…';
         try {
           await saveReportNotes(jobId, document.getElementById("overall-notes").value);
+          await saveInspectionData(jobId, collectInspectionData());
           await finalizeTimer(jobId);
           await submitReport(jobId);
           location.reload();
@@ -261,6 +284,156 @@
         }
       });
     }
+  }
+
+  function equipmentRow(zone, item, isSubmitted) {
+    const checked = report.equipmentInspection && report.equipmentInspection[zone] && report.equipmentInspection[zone][item.key];
+    return `
+      <label class="checkbox-row">
+        <input type="checkbox" data-equipment-zone="${zone}" data-equipment-key="${item.key}" ${checked ? "checked" : ""} ${isSubmitted ? "disabled" : ""}>
+        <span>${esc(item.label)}</span>
+      </label>`;
+  }
+
+  function airQualityRow(field, isSubmitted) {
+    const current = (report.airQualityFindings && report.airQualityFindings[field.key]) || field.options[0];
+    return `
+      <div class="field">
+        <label>${esc(field.label)}</label>
+        <select data-aq-field="${field.key}" ${isSubmitted ? "disabled" : ""}>
+          ${field.options.map((opt) => `<option ${opt === current ? "selected" : ""}>${esc(opt)}</option>`).join("")}
+        </select>
+      </div>`;
+  }
+
+  function renderInspectionSection(isSubmitted) {
+    const showAirQuality = job.addOns && job.addOns.airQualityTest;
+    return `
+      <div class="mobile-section-title mt-24"><h2>Equipment Inspection</h2></div>
+      <div class="card">
+        <h4 class="text-muted" style="font-size:0.8rem; text-transform:uppercase; margin-bottom:8px;">Indoor Unit</h4>
+        ${EQUIPMENT_INSPECTION_ITEMS.indoor.map((item) => equipmentRow("indoor", item, isSubmitted)).join("")}
+        <h4 class="text-muted mt-16" style="font-size:0.8rem; text-transform:uppercase; margin-bottom:8px;">Outdoor Unit</h4>
+        ${EQUIPMENT_INSPECTION_ITEMS.outdoor.map((item) => equipmentRow("outdoor", item, isSubmitted)).join("")}
+      </div>
+
+      ${showAirQuality ? `
+      <div class="mobile-section-title mt-24"><h2>Air Quality Findings</h2></div>
+      <div class="card">
+        ${AIR_QUALITY_FIELDS.map((field) => airQualityRow(field, isSubmitted)).join("")}
+      </div>` : ""}
+
+      <div class="mobile-section-title mt-24"><h2>Summary</h2></div>
+      <div class="card">
+        <div class="field">
+          <label for="health-score">Health Score (0–100)</label>
+          <input type="number" id="health-score" min="0" max="100" value="${report.healthScore ?? 100}" ${isSubmitted ? "disabled" : ""}>
+        </div>
+        <div class="field">
+          <label for="system-summary">System Summary</label>
+          <textarea id="system-summary" ${isSubmitted ? "disabled" : ""}>${esc(report.systemSummary)}</textarea>
+        </div>
+        <div class="field">
+          <label for="recommendations">Recommendations</label>
+          <textarea id="recommendations" ${isSubmitted ? "disabled" : ""}>${esc(report.recommendations)}</textarea>
+        </div>
+        <div class="field">
+          <label for="next-service">Next Recommended Service</label>
+          <input type="date" id="next-service" value="${dateInputValue(report.nextRecommendedService)}" ${isSubmitted ? "disabled" : ""}>
+        </div>
+      </div>
+    `;
+  }
+
+  function recomputeHealthScoreFromInputs() {
+    const equipmentInspection = { indoor: {}, outdoor: {} };
+    document.querySelectorAll("[data-equipment-zone]").forEach((cb) => {
+      equipmentInspection[cb.dataset.equipmentZone][cb.dataset.equipmentKey] = cb.checked;
+    });
+    let airQualityFindings = null;
+    const aqSelects = document.querySelectorAll("[data-aq-field]");
+    if (aqSelects.length) {
+      airQualityFindings = {};
+      aqSelects.forEach((sel) => { airQualityFindings[sel.dataset.aqField] = sel.value; });
+    }
+    return computeHealthScore(equipmentInspection, airQualityFindings);
+  }
+
+  function wireInspectionHandlers(isSubmitted) {
+    if (isSubmitted) return;
+
+    async function recomputeAndSaveScore() {
+      const score = recomputeHealthScoreFromInputs();
+      const scoreInput = document.getElementById("health-score");
+      if (scoreInput) scoreInput.value = score;
+      await saveInspectionData(jobId, { healthScore: score });
+    }
+
+    document.querySelectorAll("[data-equipment-zone]").forEach((cb) => {
+      cb.addEventListener("change", async () => {
+        await saveInspectionData(jobId, {
+          equipmentInspection: { [cb.dataset.equipmentZone]: { [cb.dataset.equipmentKey]: cb.checked } },
+        });
+        await recomputeAndSaveScore();
+      });
+    });
+
+    document.querySelectorAll("[data-aq-field]").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        await saveInspectionData(jobId, { airQualityFindings: { [sel.dataset.aqField]: sel.value } });
+        await recomputeAndSaveScore();
+      });
+    });
+
+    document.getElementById("health-score").addEventListener("change", async (e) => {
+      await saveInspectionData(jobId, { healthScore: parseInt(e.target.value, 10) || 0 });
+    });
+    document.getElementById("system-summary").addEventListener("change", async (e) => {
+      await saveInspectionData(jobId, { systemSummary: e.target.value });
+    });
+    document.getElementById("recommendations").addEventListener("change", async (e) => {
+      await saveInspectionData(jobId, { recommendations: e.target.value });
+    });
+    document.getElementById("next-service").addEventListener("change", async (e) => {
+      if (e.target.value) await saveInspectionData(jobId, { nextRecommendedService: new Date(e.target.value) });
+    });
+  }
+
+  /** Reads the current DOM state of every inspection/summary field — used as
+   * a final belt-and-suspenders save at Submit time, in case a field was
+   * edited but never blurred (so its 'change' handler never fired). */
+  function collectInspectionData() {
+    const equipmentInspection = { indoor: {}, outdoor: {} };
+    document.querySelectorAll("[data-equipment-zone]").forEach((cb) => {
+      equipmentInspection[cb.dataset.equipmentZone][cb.dataset.equipmentKey] = cb.checked;
+    });
+    const data = {
+      equipmentInspection,
+      healthScore: parseInt(document.getElementById("health-score").value, 10) || 0,
+      systemSummary: document.getElementById("system-summary").value,
+      recommendations: document.getElementById("recommendations").value,
+    };
+    const nextServiceVal = document.getElementById("next-service").value;
+    if (nextServiceVal) data.nextRecommendedService = new Date(nextServiceVal);
+
+    const aqSelects = document.querySelectorAll("[data-aq-field]");
+    if (aqSelects.length) {
+      const airQualityFindings = {};
+      aqSelects.forEach((sel) => { airQualityFindings[sel.dataset.aqField] = sel.value; });
+      data.airQualityFindings = airQualityFindings;
+    }
+    return data;
+  }
+
+  function phaseCaptureRow(item, phase, isDone) {
+    const phasePhotos = photosFor(item.key, phase);
+    const thumbs = phasePhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("");
+    const cameraBtn = isDone ? "" : `<label class="camera-btn" aria-label="Add ${phase} photo">&#128247;<input type="file" accept="image/*" capture="environment" hidden data-photo-for="${item.key}" data-phase="${phase}"></label>`;
+    return `
+      <div style="flex:1; min-width:110px;">
+        <div class="text-muted" style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:4px;">${phase}</div>
+        <div class="item-photo-row" data-phase-row="${item.key}-${phase}">${thumbs}${cameraBtn}</div>
+      </div>`;
   }
 
   function renderChecklistItems(isSubmitted) {
@@ -280,13 +453,13 @@
             ${state.done && state.note ? `<div class="item-note-display">${esc(state.note)}</div>` : ""}
           </div>
         </div>
-        ${state.done && itemPhotos.length ? `<div class="item-photo-row" style="margin-left:36px;">${itemPhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("")}</div>` : ""}
+        ${state.done && itemPhotos.length ? `<div class="flex-gap" style="margin-left:36px;">${phaseCaptureRow(item, "before", true)}${phaseCaptureRow(item, "after", true)}</div>` : ""}
         ${isActive ? `
         <div class="item-detail">
           <textarea data-note-for="${item.key}" placeholder="Notes for this step...">${esc(state.note)}</textarea>
-          <div class="item-photo-row">
-            ${itemPhotos.map((p) => `<div class="photo-thumb"><img src="${p.url}"></div>`).join("")}
-            <label class="camera-btn" aria-label="Add photo">&#128247;<input type="file" accept="image/*" capture="environment" hidden data-photo-for="${item.key}"></label>
+          <div class="flex-gap mt-8">
+            ${phaseCaptureRow(item, "before", false)}
+            ${phaseCaptureRow(item, "after", false)}
           </div>
           <button class="btn btn-primary btn-sm mt-8" data-done-for="${item.key}">Mark Done</button>
         </div>` : ""}
@@ -307,11 +480,12 @@
     wrap.querySelectorAll("[data-photo-for]").forEach((input) => {
       input.addEventListener("change", async () => {
         const key = input.dataset.photoFor;
+        const phase = input.dataset.phase;
         const file = input.files && input.files[0];
         if (!file) return;
         try {
           const { storagePath, downloadURL } = await uploadJobPhoto(jobId, file);
-          await addPhotoDoc(jobId, { storagePath, itemKey: key, uploadedBy: user.uid, employeeId: user.uid });
+          await addPhotoDoc(jobId, { storagePath, itemKey: key, phase, uploadedBy: user.uid, employeeId: user.uid });
           photos = await loadPhotos();
           // Insert the new thumbnail directly rather than re-rendering the
           // whole card — a full re-render would wipe out whatever the

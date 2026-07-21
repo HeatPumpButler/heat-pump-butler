@@ -167,6 +167,7 @@ async function main() {
     notes: "Please check attic air handler. Homeowner has allergies.",
     unitCounts: { indoor: 1, outdoor: 1 },
     equipment: { manufacturer: "Daikin", model: "4TTR4024L1000A", outdoorUnitSerial: "D14VSA3610AA" },
+    addOns: { airQualityTest: true },
     source: "manual",
     calBookingUid: null,
     calEventTypeSlug: null,
